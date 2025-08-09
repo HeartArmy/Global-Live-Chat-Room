@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Bot, Shield, Sparkles } from 'lucide-react'
+import { Send, Bot, Shield, Sparkles, Globe } from 'lucide-react'
 import { generateRandomMathProblem } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
