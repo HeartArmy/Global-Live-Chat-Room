@@ -61,37 +61,7 @@ export default function Home() {
     return () => clearTimeout(timer)
   }, [])
 
-  // Simulate new messages from other users
-  useEffect(() => {
-    if (!isConnected) return
 
-    const interval = setInterval(() => {
-      // Simulate random messages from other users
-      const randomNames = ['Alex', 'Sarah', 'Mike', 'Emma', 'David', 'Lisa', 'John', 'Anna']
-      const randomMessages = [
-        'Hello from the other side of the world! 🌍',
-        'This chat is amazing! ✨',
-        'Hey everyone! 👋',
-        'What a beautiful day for global chatting! 🌟',
-        'Greetings from my corner of the world! 🗺️',
-        'This is so cool! 🚀',
-        'Hello global friends! 👥',
-        'What\'s everyone up to today? 🤔'
-      ]
-
-      if (Math.random() < 0.3) { // 30% chance every interval
-        const newMessage: Message = {
-          _id: Date.now().toString(),
-          name: randomNames[Math.floor(Math.random() * randomNames.length)],
-          message: randomMessages[Math.floor(Math.random() * randomMessages.length)],
-          timestamp: new Date().toISOString()
-        }
-        setMessages(prev => [...prev, newMessage])
-      }
-    }, 8000) // Every 8 seconds
-
-    return () => clearInterval(interval)
-  }, [isConnected])
 
   const handleSendMessage = async (name: string, message: string) => {
     if (!message.trim()) return

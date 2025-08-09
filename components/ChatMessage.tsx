@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { formatTimestamp } from '@/lib/utils'
-import { Message, Users, Clock, Globe } from 'lucide-react'
+import { Clock } from 'lucide-react'
 
 interface ChatMessageProps {
   message: {
