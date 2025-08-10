@@ -150,8 +150,13 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     }
   }, [showPicker])
 
-  // Built-in emoji grid (Top 10)
-  const commonEmojis = ['😀','😂','❤️','👍','🙏','🎉','🔥','😍','😭','😊']
+  // Built-in emoji grid (Top 40)
+  const commonEmojis = [
+    '😀','😁','😂','🤣','😊','😉','😍','🥰','😘','😎',
+    '🤔','😅','😭','😴','🥳','🤯','😤','😇','🙃','😐',
+    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','💯','✨',
+    '👍','👎','👏','🙌','🙏','💪','🔥','🎉','⚡','🌟'
+  ]
 
   // Paste uploads will be handled by posting to our server route
 
