@@ -167,7 +167,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   return (
     <motion.form
       onSubmit={handleSubmit}
-      className="flex items-end gap-3 p-4 bg-white/80 dark:bg-apple-dark/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-gray-700/50"
+      className="flex items-center gap-3 p-4 bg-white/80 dark:bg-apple-dark/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-gray-700/50"
       initial={{ y: 50, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay: 0.3 }}
@@ -221,7 +221,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
           placeholder={currentPlaceholder}
           disabled={disabled}
           rows={1}
-          className="chat-textarea w-full px-4 py-3 pr-16 rounded-2xl border border-gray-200 dark:border-gray-700 
+          className="chat-textarea w-full px-4 py-3 pr-20 rounded-2xl border border-gray-200 dark:border-gray-700 
                     bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                     focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent
                     transition-all duration-200 resize-none min-h-[48px] max-h-32
@@ -261,7 +261,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         />
 
         {/* Action buttons container (stable layout) */}
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
           {/* Image upload (paste hint) */}
           <button
             type="button"
@@ -335,9 +335,9 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         disabled={!message.trim() || disabled || isUploading}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="bg-apple-blue hover:bg-blue-600 text-white p-3 rounded-2xl
+        className="bg-apple-blue hover:bg-blue-600 text-white h-12 w-12 rounded-2xl
                  transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
-                 disabled:transform-none flex items-center justify-center min-w-[48px]"
+                 disabled:transform-none flex items-center justify-center"
       >
         {isUploading ? (
           <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
