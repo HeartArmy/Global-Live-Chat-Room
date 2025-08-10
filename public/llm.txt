@@ -1,0 +1,9 @@
+# LLM crawling policy for true-live-chat
+# This file is informational and complements robots.txt
+# Common discovery URL: https://true-live-chat.vercel.app/llm.txt
+
+Owner: arhampersonal at icloud dot com
+Policy: Allow
+Notes:
+- This site permits indexing of public chat pages by LLM crawlers.
+- Respect robots.txt and rate limits.

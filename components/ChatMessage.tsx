@@ -4,15 +4,17 @@ import { motion } from 'framer-motion'
 import { ChatMessage as ChatMessageType, ReplyInfo } from '@/types/chat'
 import { CornerUpRight } from 'lucide-react'
 import { formatTimestamp } from '@/utils/timezone'
+import { countryCodeToFlag } from '@/utils/geo'
 
 interface ChatMessageProps {
   message: ChatMessageType
   currentUsername?: string
+  currentUserCountry?: string
   index: number
   onReply?: (reply: ReplyInfo) => void
 }
 
-export default function ChatMessage({ message, currentUsername, index, onReply }: ChatMessageProps) {
+export default function ChatMessage({ message, currentUsername, currentUserCountry, index, onReply }: ChatMessageProps) {
   const isCurrentUser = message.username === currentUsername
   const text = message.message
 
@@ -78,7 +80,12 @@ export default function ChatMessage({ message, currentUsername, index, onReply }
           <div className={`flex items-center gap-2 mt-1 text-xs text-gray-500 ${
             isCurrentUser ? 'flex-row-reverse' : 'flex-row'
           }`}>
-            <span className="font-medium">{message.username}</span>
+            <span className="font-medium flex items-center gap-1">
+              {isCurrentUser && currentUserCountry && (
+                <span aria-hidden>{countryCodeToFlag(currentUserCountry)}</span>
+              )}
+              {message.username}
+            </span>
             <span>•</span>
             <span>{formatTimestamp(new Date(message.timestamp))}</span>
             {onReply && (

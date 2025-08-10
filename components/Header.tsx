@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { countryCodeToFlag } from '@/utils/geo'
 import { Globe, Users, Clock } from 'lucide-react'
 import { getCurrentTimestamp } from '@/utils/timezone'
 import { useEffect, useState } from 'react'
@@ -9,9 +10,10 @@ interface HeaderProps {
   onlineCount?: number
   totalMessages?: number
   username?: string
+  countryCode?: string
 }
 
-export default function Header({ onlineCount = 0, totalMessages = 0, username }: HeaderProps) {
+export default function Header({ onlineCount = 0, totalMessages = 0, username, countryCode }: HeaderProps) {
   const [currentTime, setCurrentTime] = useState('')
 
   useEffect(() => {
@@ -60,6 +62,7 @@ export default function Header({ onlineCount = 0, totalMessages = 0, username }:
                 <div className="mt-1">
                   <span className="inline-flex items-center gap-2 text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-apple-blue" />
+                    {countryCode && <span aria-hidden>{countryCodeToFlag(countryCode)}</span>}
                     Using name: <strong className="font-medium">{username}</strong>
                   </span>
                 </div>
@@ -80,7 +83,10 @@ export default function Header({ onlineCount = 0, totalMessages = 0, username }:
             </div>
             {username && (
               <div className="flex items-center gap-2">
-                <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">{username}</span>
+                <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
+                  {countryCode && <span className="mr-1" aria-hidden>{countryCodeToFlag(countryCode)}</span>}
+                  {username}
+                </span>
               </div>
             )}
             
@@ -102,6 +108,7 @@ export default function Header({ onlineCount = 0, totalMessages = 0, username }:
           <span className="truncate flex items-center gap-2">
             {username && (
               <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
+                {countryCode && <span className="mr-1" aria-hidden>{countryCodeToFlag(countryCode)}</span>}
                 {username}
               </span>
             )}

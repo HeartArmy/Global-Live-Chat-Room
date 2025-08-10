@@ -21,6 +21,7 @@ export default function Home() {
   const [isNearBottom, setIsNearBottom] = useState(true)
   const [autoScrollLocked, setAutoScrollLocked] = useState(false)
   const didInitialScroll = useRef(false)
+  const [countryCode, setCountryCode] = useState<string | null>(null)
   // Stable session id for presence tracking
   const [sessionId] = useState<string>(() => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -44,6 +45,9 @@ export default function Home() {
   useEffect(() => {
     fetchMessages()
     fetchStats()
+    // fetch country (privacy-friendly; no IP stored)
+    fetch('/api/geo')
+      .then((r) => r.json()).then((d) => setCountryCode(d?.countryCode || null)).catch(() => {})
     
     // Poll for new messages every 3 seconds
     const interval = setInterval(() => {
@@ -182,7 +186,7 @@ export default function Home() {
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-apple-dark dark:to-gray-800 flex flex-col">
-      <Header onlineCount={stats.onlineCount} totalMessages={stats.totalMessages} username={user?.username} />
+      <Header onlineCount={stats.onlineCount} totalMessages={stats.totalMessages} username={user?.username} countryCode={countryCode || undefined} />
       
       <main className="flex-1 min-h-0 flex flex-col max-w-4xl mx-auto w-full">
         {/* Messages area */}
@@ -230,6 +234,7 @@ export default function Home() {
                   key={message._id || index}
                   message={message}
                   currentUsername={user?.username}
+                  currentUserCountry={countryCode || undefined}
                   index={index}
                   onReply={(info) => setReplyTo(info)}
                 />
@@ -247,7 +252,7 @@ export default function Home() {
                 scrollToBottom()
                 setAutoScrollLocked(false)
               }}
-              className="absolute right-4 bottom-4 px-3 py-2 rounded-full shadow-md bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 flex items-center gap-2"
+              className="absolute left-1/2 -translate-x-1/2 bottom-4 px-3 py-2 rounded-full shadow-md bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 flex items-center gap-2"
               aria-label="Scroll to latest"
             >
               <span className="text-sm">Scroll to latest</span>
