@@ -43,18 +43,17 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      // SVGs
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/icon-light.svg', type: 'image/svg+xml', media: '(prefers-color-scheme: light)' },
-      { url: '/icon-dark.svg', type: 'image/svg+xml', media: '(prefers-color-scheme: dark)' },
+      // SVGs (use color-scheme-specific icons; omit generic to respect media queries in Chrome)
+      { url: '/icon-light.svg?v=2', type: 'image/svg+xml', media: '(prefers-color-scheme: light)' },
+      { url: '/icon-dark.svg?v=2', type: 'image/svg+xml', media: '(prefers-color-scheme: dark)' },
       // PNG fallbacks (add these files to /public if not present)
-      { url: '/favicon-32x32.png', type: 'image/png', sizes: '32x32' },
-      { url: '/favicon-16x16.png', type: 'image/png', sizes: '16x16' },
+      { url: '/favicon-32x32.png?v=2', type: 'image/png', sizes: '32x32' },
+      { url: '/favicon-16x16.png?v=2', type: 'image/png', sizes: '16x16' },
       // ICO fallback (add /public/favicon.ico for widest browser support)
-      { url: '/favicon.ico' },
+      { url: '/favicon.ico?v=2' },
     ],
-    apple: [{ url: '/icon-light.svg' }],
-    shortcut: ['/favicon.ico', '/favicon.svg'],
+    apple: [{ url: '/icon-light.svg?v=2' }],
+    shortcut: ['/favicon.ico?v=2'],
   },
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },

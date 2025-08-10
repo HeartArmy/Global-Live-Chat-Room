@@ -39,6 +39,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   const [showPasteHint, setShowPasteHint] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const pickerRef = useRef<HTMLDivElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const MAX_SIZE_BYTES = 500 * 1024 // 500 KB
   const ACCEPT_TYPES = [
@@ -200,7 +201,23 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
           }}
         />
         {/* Removed file chooser: paste-only flow */}
-        
+        {/* Hidden file input for manual uploads */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPT_TYPES.join(',')}
+          className="hidden"
+          onChange={async (e) => {
+            if (disabled) return
+            const list = e.target.files
+            if (!list || !list.length) return
+            const files = Array.from(list)
+            await handleFilesUpload(files)
+            // Allow selecting the same file again in future
+            e.currentTarget.value = ''
+          }}
+        />
+
         {/* Action buttons container (stable layout) */}
         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
           {/* Image upload (paste hint) */}
@@ -209,10 +226,17 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
             className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
             aria-label="Upload image"
             onClick={() => {
+              if (disabled || isUploading) return
+              // Open native file picker for local uploads
+              fileInputRef.current?.click()
+            }}
+            onMouseEnter={() => {
               if (disabled) return
               setShowPasteHint(true)
+              // Auto-hide after a short delay to keep UI tidy
               setTimeout(() => setShowPasteHint(false), 2500)
             }}
+            onMouseLeave={() => setShowPasteHint(false)}
             disabled={disabled || isUploading}
           >
             <ImageIcon size={18} />
