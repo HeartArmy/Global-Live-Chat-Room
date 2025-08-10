@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="32" y1="24" x2="224" y2="232" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0EA5E9"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="#ffffff"/>
+  <g filter="url(#shadow)">
+    <circle cx="128" cy="128" r="72" fill="url(#g)"/>
+    <path d="M128 56c-22 0-40 32-40 72s18 72 40 72 40-32 40-72-18-72-40-72zm0 0c-40 0-72 18-72 40s32 40 72 40 72-18 72-40-32-40-72-40z" fill="#fff" fill-opacity="0.9"/>
+  </g>
+  <defs>
+    <filter id="shadow" x="0" y="0" width="256" height="256" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000000" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <title>Chat Room for the World</title>
+</svg>

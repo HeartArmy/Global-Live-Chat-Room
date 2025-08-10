@@ -16,6 +16,8 @@ export default function Home() {
   const [isSending, setIsSending] = useState(false)
   const [stats, setStats] = useState({ onlineCount: 0, totalMessages: 0 })
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  // Stable session id for presence tracking
+  const [sessionId] = useState<string>(() => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -101,6 +103,61 @@ export default function Home() {
   const handleAuth = (authenticatedUser: User) => {
     setUser(authenticatedUser)
   }
+
+  // Presence heartbeat: ping server every 15s and on visibility changes
+  useEffect(() => {
+    let stopped = false
+
+    const postPresence = async () => {
+      try {
+        await fetch('/api/presence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, username: user?.username }),
+          keepalive: true,
+        })
+      } catch (e) {
+        // swallow errors; heartbeat is best-effort
+      }
+    }
+
+    // initial ping
+    postPresence()
+
+    const interval = setInterval(() => {
+      if (!stopped && document.visibilityState === 'visible') {
+        postPresence()
+      }
+    }, 15000)
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') postPresence()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+
+    const onUnload = () => {
+      try {
+        const payload = JSON.stringify({ sessionId, username: user?.username })
+        if (navigator.sendBeacon) {
+          const blob = new Blob([payload], { type: 'application/json' })
+          navigator.sendBeacon('/api/presence', blob)
+        } else {
+          // best-effort
+          fetch('/api/presence', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true })
+        }
+      } catch {}
+    }
+    window.addEventListener('pagehide', onUnload)
+    window.addEventListener('beforeunload', onUnload)
+
+    return () => {
+      stopped = true
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', onUnload)
+      window.removeEventListener('beforeunload', onUnload)
+    }
+  }, [sessionId, user?.username])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-apple-dark dark:to-gray-800 flex flex-col">

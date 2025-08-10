@@ -9,9 +9,14 @@ export async function GET() {
     // Get total message count
     const totalMessages = await db.collection('messages').countDocuments()
     
-    // Get unique users count (approximate online users)
+    // Presence-based online users: seen within last 60s
+    const since = new Date(Date.now() - 60 * 1000)
+    const onlineCount = await db
+      .collection('presence')
+      .countDocuments({ lastSeen: { $gte: since } })
+    
+    // Unique users historically (optional informational metric)
     const uniqueUsers = await db.collection('messages').distinct('username')
-    const onlineCount = Math.max(uniqueUsers.length, Math.floor(Math.random() * 50) + 10) // Add some randomness for demo
     
     return NextResponse.json({
       totalMessages,

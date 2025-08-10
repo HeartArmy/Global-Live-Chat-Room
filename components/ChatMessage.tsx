@@ -12,6 +12,11 @@ interface ChatMessageProps {
 
 export default function ChatMessage({ message, currentUsername, index }: ChatMessageProps) {
   const isCurrentUser = message.username === currentUsername
+  const text = message.message
+
+  const imageMarkdownMatch = text.match(/!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/)
+  const directImageUrlMatch = text.match(/^(https?:\/\/[^\s]+\.(?:png|jpe?g|webp|gif))$/i)
+  const imageUrl = imageMarkdownMatch?.[1] || directImageUrlMatch?.[1]
   
   return (
     <motion.div
@@ -36,7 +41,16 @@ export default function ChatMessage({ message, currentUsername, index }: ChatMes
         {/* Message bubble */}
         <div className="flex flex-col">
           <div className={`chat-bubble ${isCurrentUser ? 'chat-bubble-user' : 'chat-bubble-other'}`}>
-            <p className="text-sm leading-relaxed">{message.message}</p>
+            {imageUrl ? (
+              <img
+                src={imageUrl}
+                alt="uploaded image"
+                className="rounded-xl max-w-[280px] h-auto"
+                loading="lazy"
+              />
+            ) : (
+              <p className="text-sm leading-relaxed">{text}</p>
+            )}
           </div>
           
           {/* Metadata */}

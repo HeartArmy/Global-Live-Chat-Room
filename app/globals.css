@@ -78,3 +78,40 @@
     background: #5a5a5a;
   }
 }
+
+/* Chat textarea refined scrollbar (light/dark + Firefox) */
+.chat-textarea {
+  scrollbar-width: thin;           /* Firefox */
+  scrollbar-color: #c1c1c1 transparent; /* Firefox */
+}
+
+.chat-textarea::-webkit-scrollbar {
+  width: 8px; /* slightly larger for touch */
+}
+
+.chat-textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-textarea::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #d7d7d7, #c1c1c1);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.chat-textarea::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #cfcfcf, #adadad);
+}
+
+@media (prefers-color-scheme: dark) {
+  .chat-textarea {
+    scrollbar-color: #4a4a4a transparent; /* Firefox */
+  }
+  .chat-textarea::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #5a5a5a, #404040);
+  }
+  .chat-textarea::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #6a6a6a, #505050);
+  }
+}
