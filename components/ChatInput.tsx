@@ -183,7 +183,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
           placeholder={currentPlaceholder}
           disabled={disabled}
           rows={1}
-          className="chat-textarea w-full px-4 py-3 pr-12 rounded-2xl border border-gray-200 dark:border-gray-700 
+          className="chat-textarea w-full px-4 py-3 pr-16 rounded-2xl border border-gray-200 dark:border-gray-700 
                     bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                     focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent
                     transition-all duration-200 resize-none min-h-[48px] max-h-32
@@ -201,35 +201,33 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
         />
         {/* Removed file chooser: paste-only flow */}
         
-        {/* Emoji button + picker */}
-        <motion.button
-          type="button"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          aria-label="Choose emoji"
-          onClick={() => setShowPicker(v => !v)}
-        >
-          <Smile size={20} />
-        </motion.button>
+        {/* Action buttons container (stable layout) */}
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          {/* Image upload (paste hint) */}
+          <button
+            type="button"
+            className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
+            aria-label="Upload image"
+            onClick={() => {
+              if (disabled) return
+              setShowPasteHint(true)
+              setTimeout(() => setShowPasteHint(false), 2500)
+            }}
+            disabled={disabled || isUploading}
+          >
+            <ImageIcon size={18} />
+          </button>
 
-        {/* Image upload icon (triggers hidden input) */}
-        <motion.button
-          type="button"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          className="absolute right-10 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-          aria-label="Upload image"
-          onClick={() => {
-            if (disabled) return
-            setShowPasteHint(true)
-            // auto-hide after a short delay
-            setTimeout(() => setShowPasteHint(false), 2500)
-          }}
-          disabled={disabled || isUploading}
-        >
-          <ImageIcon size={20} />
-        </motion.button>
+          {/* Emoji button */}
+          <button
+            type="button"
+            className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
+            aria-label="Choose emoji"
+            onClick={() => setShowPicker(v => !v)}
+          >
+            <Smile size={18} />
+          </button>
+        </div>
 
         {showPasteHint && (
           <div className="absolute right-0 bottom-14 z-40 select-none">
