@@ -43,7 +43,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   const pickerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const MAX_SIZE_BYTES = 500 * 1024 // 500 KB
+  const MAX_SIZE_BYTES = 512 * 1024 // 512 KB
   const ACCEPT_TYPES = [
     'image/png',
     'image/jpeg',
@@ -57,7 +57,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
       return false
     }
     if (file.size > MAX_SIZE_BYTES) {
-      alert('Image is too large. Max size is 500 KB.')
+      alert('Image is too large. Max size is 512 KB.')
       return false
     }
     return true
@@ -263,7 +263,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
         {showPasteHint && (
           <div className="absolute right-0 bottom-14 z-40 select-none">
             <div className="px-3 py-2 text-xs rounded-lg bg-gray-900 text-white shadow-lg dark:bg-black/80">
-              Paste an image here (Cmd/Ctrl + V). Max 500 KB.
+              Paste an image here (Cmd/Ctrl + V). Max 512 KB.
             </div>
           </div>
         )}
