@@ -19,8 +19,8 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [isNearBottom, setIsNearBottom] = useState(true)
-  const [unreadCount, setUnreadCount] = useState(0)
   const [autoScrollLocked, setAutoScrollLocked] = useState(false)
+  const didInitialScroll = useRef(false)
   // Stable session id for presence tracking
   const [sessionId] = useState<string>(() => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -30,13 +30,13 @@ export default function Home() {
   }
 
   useEffect(() => {
-    // Only autoscroll if user is near bottom and not locked
-    const last = messages[messages.length - 1]
-    if (isNearBottom && !autoScrollLocked) {
+    // Initial auto-scroll once when messages first load
+    if (!didInitialScroll.current && messages.length > 0) {
+      didInitialScroll.current = true
       scrollToBottom()
-      setUnreadCount(0)
-    } else if (last) {
-      setUnreadCount((c) => c + 1)
+    } else if (isNearBottom && !autoScrollLocked) {
+      // Keep following the bottom when near it and not locked
+      scrollToBottom()
     }
   }, [messages, isNearBottom, autoScrollLocked])
 
@@ -116,6 +116,13 @@ export default function Home() {
 
   const handleAuth = (authenticatedUser: User) => {
     setUser(authenticatedUser)
+    // On login, jump to latest and unlock autoscroll
+    requestAnimationFrame(() => {
+      didInitialScroll.current = true
+      setIsNearBottom(true)
+      setAutoScrollLocked(false)
+      scrollToBottom()
+    })
   }
 
   // Presence heartbeat: ping server every 15s and on visibility changes
@@ -188,7 +195,6 @@ export default function Home() {
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
             setIsNearBottom(atBottom)
             if (atBottom) {
-              setUnreadCount(0)
               setAutoScrollLocked(false)
             } else {
               setAutoScrollLocked(true)
@@ -239,16 +245,12 @@ export default function Home() {
               exit={{ opacity: 0, y: 10 }}
               onClick={() => {
                 scrollToBottom()
-                setUnreadCount(0)
                 setAutoScrollLocked(false)
               }}
               className="absolute right-4 bottom-4 px-3 py-2 rounded-full shadow-md bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 flex items-center gap-2"
               aria-label="Scroll to latest"
             >
               <span className="text-sm">Scroll to latest</span>
-              {unreadCount > 0 && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-apple-blue text-white">{unreadCount}</span>
-              )}
             </motion.button>
           )}
         </div>
