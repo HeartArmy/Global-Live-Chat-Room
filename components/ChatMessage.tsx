@@ -80,14 +80,6 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
           <div className={`flex items-center gap-2 mt-1 text-xs text-gray-500 ${
             isCurrentUser ? 'flex-row-reverse' : 'flex-row'
           }`}>
-            <span className="font-medium flex items-center gap-1">
-              {/* Show message sender's flag if available; fallback to viewer's country for own legacy messages */}
-              <span aria-hidden>
-                {countryCodeToFlag(message.countryCode || (isCurrentUser ? currentUserCountry : undefined))}
-              </span>
-              {message.username}
-            </span>
-            <span>•</span>
             <span>{formatTimestamp(new Date(message.timestamp))}</span>
             {onReply && (
               <>

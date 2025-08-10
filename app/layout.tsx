@@ -6,7 +6,7 @@ import { NextSSRPlugin } from '@uploadthing/react/next-ssr-plugin'
 import { extractRouterConfig } from 'uploadthing/server'
 import { ourFileRouter } from '@/app/api/uploadthing/core'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://live-chat.example.com'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://true-live-chat.vercel.app/'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

@@ -195,6 +195,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             )}
           </div>
         )}
+        <div className="relative">
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -219,7 +220,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
           placeholder={currentPlaceholder}
           disabled={disabled}
           rows={1}
-          className="chat-textarea w-full px-4 pr-20 rounded-2xl border border-gray-200 dark:border-gray-700 
+          className="chat-textarea w-full px-4 py-3 pr-20 rounded-2xl border border-gray-200 dark:border-gray-700 
                     bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                     focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent
                     transition-all duration-200 resize-none h-12 max-h-32
@@ -326,6 +327,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             </div>
           </div>
         )}
+        </div>
       </div>
       
       <motion.button
