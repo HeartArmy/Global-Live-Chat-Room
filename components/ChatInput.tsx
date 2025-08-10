@@ -217,7 +217,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             }
           }}
           onKeyPress={handleKeyPress}
-          placeholder={currentPlaceholder}
+          placeholder={''}
           disabled={disabled}
           rows={1}
           className="chat-textarea w-full px-4 py-3 pr-20 rounded-2xl border border-gray-200 dark:border-gray-700 
@@ -236,6 +236,15 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             target.style.height = `${next}px`
           }}
         />
+        {/* Locked placeholder overlay */}
+        {(!message || message.length === 0) && (
+          <div
+            className="pointer-events-none select-none absolute left-4 right-20 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-400/80 truncate"
+            aria-hidden
+          >
+            {currentPlaceholder}
+          </div>
+        )}
         {/* Removed file chooser: paste-only flow */}
         {/* Hidden file input for manual uploads */}
         <input
