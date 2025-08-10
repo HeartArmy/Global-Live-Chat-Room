@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { UTApi } from 'uploadthing/server'
 
+// Ensure this route runs on the Node.js runtime (needed for UploadThing server SDK)
+export const runtime = 'nodejs'
+// Avoid caching so new envs take effect immediately after redeploy
+export const dynamic = 'force-dynamic'
+
 // Strict server-side validation
 const MAX_SIZE_BYTES = 512 * 1024 // 512 KB hard cap server-side
 const ALLOWED_TYPES = new Set([
@@ -13,8 +18,15 @@ const ALLOWED_TYPES = new Set([
 export async function POST(req: Request) {
   try {
     // Ensure UploadThing secret is configured
-    if (!process.env.UPLOADTHING_SECRET) {
-      return NextResponse.json({ error: 'Server not configured for uploads' }, { status: 500 })
+    const hasSecret = Boolean(process.env.UPLOADTHING_SECRET)
+    const hasAppId = Boolean(process.env.UPLOADTHING_APP_ID)
+    if (!hasSecret) {
+      // Safe diagnostics for Vercel logs
+      console.error('[paste-upload] Missing envs', { hasSecret, hasAppId })
+      return NextResponse.json(
+        { error: 'Upload server not configured: missing UPLOADTHING_SECRET (set in Vercel env and redeploy)' },
+        { status: 500 }
+      )
     }
 
     const form = await req.formData()
@@ -52,4 +64,11 @@ export async function POST(req: Request) {
     console.error('paste-upload error', e)
     return NextResponse.json({ error: e?.message || 'Upload failed' }, { status: 500 })
   }
+}
+
+// Diagnostics: visit /api/paste-upload to confirm env presence in prod
+export async function GET() {
+  const hasSecret = Boolean(process.env.UPLOADTHING_SECRET)
+  const hasAppId = Boolean(process.env.UPLOADTHING_APP_ID)
+  return NextResponse.json({ ok: true, hasSecret, hasAppId, runtime })
 }
