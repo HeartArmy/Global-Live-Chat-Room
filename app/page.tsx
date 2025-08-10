@@ -173,10 +173,10 @@ export default function Home() {
     <div className="h-screen overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-apple-dark dark:to-gray-800 flex flex-col">
       <Header onlineCount={stats.onlineCount} totalMessages={stats.totalMessages} />
       
-      <main className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
+      <main className="flex-1 min-h-0 flex flex-col max-w-4xl mx-auto w-full">
         {/* Messages area */}
         <div
-          className="flex-1 overflow-y-auto p-4 space-y-1"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-1"
           ref={messagesContainerRef}
           onScroll={(e) => {
             const el = e.currentTarget
