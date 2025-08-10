@@ -83,7 +83,7 @@ function FunFacts() {
   const facts = [
     "🌍 Messages are stored in UTC for global consistency",
     "🤖 Simple math keeps the bots away",
-    "✨ Built with Next.js 15 and React 19",
+    "✨ Built with Next.js 15 and React 18",
     "💬 Every message since day one is preserved",
     "🎨 Designed with Apple's aesthetic in mind",
     "🔒 Your privacy matters - no tracking, just chatting",
@@ -101,7 +101,7 @@ function FunFacts() {
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [facts])
 
   return (
     <motion.p

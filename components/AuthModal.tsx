@@ -98,7 +98,7 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
     }, 2000)
     
     return () => clearInterval(interval)
-  }, [])
+  }, [funnyPlaceholders])
 
   return (
     <AnimatePresence>

@@ -125,7 +125,7 @@ function FunSubtitle() {
     }, 4000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [subtitles])
 
   return (
     <motion.p
