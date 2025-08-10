@@ -81,14 +81,6 @@ export default function Header({ onlineCount = 0, totalMessages = 0, username, c
               <Users size={16} />
               <span>{onlineCount.toLocaleString()} online</span>
             </div>
-            {username && (
-              <div className="flex items-center gap-2">
-                <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
-                  {countryCode && <span className="mr-1" aria-hidden>{countryCodeToFlag(countryCode)}</span>}
-                  {username}
-                </span>
-              </div>
-            )}
             
             <div className="flex items-center gap-2">
               <Clock size={16} />
@@ -106,12 +98,6 @@ export default function Header({ onlineCount = 0, totalMessages = 0, username, c
         >
           <span>{onlineCount.toLocaleString()} people online</span>
           <span className="truncate flex items-center gap-2">
-            {username && (
-              <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
-                {countryCode && <span className="mr-1" aria-hidden>{countryCodeToFlag(countryCode)}</span>}
-                {username}
-              </span>
-            )}
             {totalMessages.toLocaleString()} messages
           </span>
         </motion.div>
