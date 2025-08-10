@@ -81,8 +81,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className="font-sf-pro antialiased bg-white dark:bg-apple-dark">
+    <html lang="en" className="dark">
+      <body className="font-sf-pro antialiased bg-shimmer-white text-gray-100">
         <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
         <script
           type="application/ld+json"

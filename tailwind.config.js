@@ -2,6 +2,7 @@
 import { withUt } from 'uploadthing/tw'
 
 export default withUt({
+  darkMode: 'class',
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -13,6 +14,15 @@ export default withUt({
         'apple-blue': '#007AFF',
         'apple-gray': '#F2F2F7',
         'apple-dark': '#1C1C1E',
+        // Dark pastel palette
+        'shimmer-white': '#1b1c1f', // deep, soft off-white for dark backgrounds
+        'pastel-ink': '#0f1115',
+        'pastel-gray': '#2a2c33',
+        'pastel-blue': '#7aa2ff',
+        'pastel-lilac': '#b8a1ff',
+        'pastel-teal': '#7fd1c7',
+        'pastel-rose': '#f2a7b8',
+        'pastel-gold': '#f5d08a',
         'apple-light-gray': '#8E8E93',
       },
       fontFamily: {

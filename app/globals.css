@@ -15,7 +15,7 @@
 
 @layer components {
   .glass-effect {
-    @apply backdrop-blur-xl bg-white/80 dark:bg-apple-dark/80;
+    @apply backdrop-blur-xl bg-shimmer-white/80;
   }
   
   .chat-bubble {
@@ -23,30 +23,30 @@
   }
   
   .chat-bubble-user {
-    @apply bg-apple-blue text-white ml-auto;
+    @apply bg-pastel-blue text-gray-100 ml-auto;
   }
   
   .chat-bubble-other {
-    @apply bg-apple-gray dark:bg-gray-700 text-gray-900 dark:text-white mr-auto;
+    @apply bg-pastel-gray text-gray-100 mr-auto;
   }
   
   .input-field {
-    @apply w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 
-           bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-           focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent
+    @apply w-full px-4 py-3 rounded-xl border border-pastel-gray 
+           bg-pastel-ink text-gray-100 placeholder:text-gray-400
+           focus:outline-none focus:ring-2 focus:ring-pastel-lilac focus:border-transparent
            transition-all duration-200;
   }
   
   .btn-primary {
-    @apply bg-apple-blue hover:bg-blue-600 text-white font-medium px-6 py-3 rounded-xl
+    @apply bg-pastel-blue hover:bg-blue-500 text-gray-100 font-medium px-6 py-3 rounded-xl
            transition-all duration-200 transform hover:scale-105 active:scale-95
-           focus:outline-none focus:ring-2 focus:ring-apple-blue focus:ring-offset-2;
+           focus:outline-none focus:ring-2 focus:ring-pastel-blue/60 focus:ring-offset-2 focus:ring-offset-pastel-ink;
   }
   
   .btn-secondary {
-    @apply bg-apple-gray hover:bg-gray-200 text-gray-900 font-medium px-6 py-3 rounded-xl
+    @apply bg-pastel-gray hover:bg-gray-700 text-gray-100 font-medium px-6 py-3 rounded-xl
            transition-all duration-200 transform hover:scale-105 active:scale-95
-           focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2;
+           focus:outline-none focus:ring-2 focus:ring-pastel-lilac/50 focus:ring-offset-2 focus:ring-offset-pastel-ink;
   }
 }
 
@@ -60,7 +60,7 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: linear-gradient(180deg, #3a3c44, #2a2c33);
   border-radius: 3px;
 }
 
@@ -71,18 +71,18 @@
 /* Dark mode scrollbar */
 @media (prefers-color-scheme: dark) {
   ::-webkit-scrollbar-thumb {
-    background: #4a4a4a;
+    background: linear-gradient(180deg, #474a52, #353741);
   }
   
   ::-webkit-scrollbar-thumb:hover {
-    background: #5a5a5a;
+    background: linear-gradient(180deg, #515460, #3e414d);
   }
 }
 
 /* Chat textarea refined scrollbar (light/dark + Firefox) */
 .chat-textarea {
   scrollbar-width: thin;           /* Firefox */
-  scrollbar-color: #c1c1c1 transparent; /* Firefox */
+  scrollbar-color: #3a3c44 transparent; /* Firefox */
 }
 
 .chat-textarea::-webkit-scrollbar {
@@ -94,7 +94,7 @@
 }
 
 .chat-textarea::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #d7d7d7, #c1c1c1);
+  background: linear-gradient(180deg, #4a4d57, #2a2c33);
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: padding-box;
@@ -106,12 +106,12 @@
 
 @media (prefers-color-scheme: dark) {
   .chat-textarea {
-    scrollbar-color: #4a4a4a transparent; /* Firefox */
+    scrollbar-color: #4a4d57 transparent; /* Firefox */
   }
   .chat-textarea::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #5a5a5a, #404040);
+    background: linear-gradient(180deg, #5a5f6b, #3a3c44);
   }
   .chat-textarea::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #6a6a6a, #505050);
+    background: linear-gradient(180deg, #6a6d7a, #474a52);
   }
 }
