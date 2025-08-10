@@ -198,7 +198,7 @@ export default function Home() {
   }, [sessionId, user?.username])
 
   return (
-    <div className="h-screen overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-apple-dark dark:to-gray-800 flex flex-col">
+    <div className="h-screen overflow-hidden bg-gradient-to-br from-pastel-ink via-shimmer-white to-pastel-gray flex flex-col">
       <Header onlineCount={stats.onlineCount} totalMessages={stats.totalMessages} username={user?.username} countryCode={countryCode || undefined} />
       
       <main className="flex-1 min-h-0 flex flex-col max-w-4xl mx-auto w-full">

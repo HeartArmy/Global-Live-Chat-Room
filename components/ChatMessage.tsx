@@ -42,8 +42,8 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
           whileHover={{ scale: 1.1 }}
           className={`relative flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
             isCurrentUser 
-              ? 'bg-apple-blue text-white ml-2' 
-              : 'bg-gradient-to-br from-purple-400 to-pink-400 text-white mr-2'
+              ? 'bg-pastel-blue text-gray-100 ml-2' 
+              : 'bg-gradient-to-br from-pastel-lilac to-pastel-rose text-gray-100 mr-2'
           }`}
         >
           {message.username.charAt(0).toUpperCase()}
@@ -92,7 +92,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
           </div>
           
           {/* Metadata */}
-          <div className={`flex items-center gap-2 mt-1 text-xs text-gray-500 ${
+          <div className={`flex items-center gap-2 mt-1 text-xs text-gray-400 ${
             isCurrentUser ? 'flex-row-reverse' : 'flex-row'
           }`}>
             <span title={formatAbsolute(new Date(message.timestamp))}>
@@ -104,7 +104,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                 <button
                   type="button"
                   onClick={() => onReply(makeReplyInfo())}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 opacity-80 group-hover:opacity-100 transition"
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-gray-400 hover:text-gray-100 hover:bg-pastel-gray/60 opacity-80 group-hover:opacity-100 transition"
                 >
                   <CornerUpRight size={12} />
                   <span>Reply</span>

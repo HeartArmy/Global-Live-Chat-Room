@@ -165,17 +165,17 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   return (
     <motion.form
       onSubmit={handleSubmit}
-      className="flex items-center gap-3 p-4 bg-white/80 dark:bg-apple-dark/80 backdrop-blur-xl border-t border-gray-200/50 dark:border-gray-700/50"
+      className="flex items-center gap-3 p-4 glass-effect border-t border-pastel-gray/50"
       initial={{ y: 50, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay: 0.3 }}
     >
       <div className="flex-1 relative">
         {replyTo && (
-          <div className="mb-2 -mt-1 flex items-start gap-2 p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 pl-3 border-l-4 border-l-blue-400 dark:border-l-blue-500">
+          <div className="mb-2 -mt-1 flex items-start gap-2 p-2 rounded-xl bg-pastel-ink/60 border border-pastel-gray pl-3 border-l-4 border-l-pastel-lilac dark:bg-pastel-ink dark:border-pastel-gray/50 dark:text-gray-300">
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium text-blue-800 dark:text-blue-200">Replying to {replyTo.username}</div>
-              <div className="text-xs text-gray-700 dark:text-gray-300 truncate flex items-center gap-2">
+              <div className="text-xs font-medium text-pastel-lilac">Replying to {replyTo.username}</div>
+              <div className="text-xs text-gray-300 truncate flex items-center gap-2">
                 {replyTo.imageUrl && (
                   <img src={replyTo.imageUrl} alt="reply" className="w-6 h-6 rounded object-cover" />
                 )}
@@ -220,11 +220,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
           placeholder={''}
           disabled={disabled}
           rows={1}
-          className="chat-textarea w-full px-4 py-3 pr-20 rounded-2xl border border-gray-200 dark:border-gray-700 
-                    bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-                    focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent
-                    transition-all duration-200 resize-none h-12 max-h-32
-                    disabled:opacity-50 disabled:cursor-not-allowed"
+          className="chat-textarea input-field pr-20 rounded-2xl transition-all duration-200 resize-none h-12 max-h-32 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
             height: '48px',
           }}
@@ -273,7 +269,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
           {/* Image upload (paste hint) */}
           <button
             type="button"
-            className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
+            className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-pastel-gray/60 transition-colors"
             aria-label="Upload image"
             onClick={() => {
               if (disabled || isUploading) return
@@ -305,7 +301,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
 
         {showPasteHint && (
           <div className="absolute right-0 bottom-14 z-40 select-none">
-            <div className="px-3 py-2 text-xs rounded-lg bg-gray-900 text-white shadow-lg dark:bg-black/80">
+            <div className="px-3 py-2 text-xs rounded-lg bg-pastel-ink text-gray-100 shadow-lg">
               Paste an image here (Cmd/Ctrl + V). Max 1 MB.
             </div>
           </div>
@@ -316,13 +312,13 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             ref={pickerRef}
             className="absolute right-0 bottom-14 z-50 drop-shadow-xl"
           >
-            <div className="p-2 w-64 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <div className="p-2 w-64 bg-pastel-ink rounded-xl border border-pastel-gray">
               <div className="grid grid-cols-8 gap-1">
                 {commonEmojis.map((em) => (
                   <button
                     key={em}
                     type="button"
-                    className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700/60 text-lg"
+                    className="h-8 w-8 flex items-center justify-center rounded hover:bg-pastel-gray/60 text-lg"
                     onClick={() => {
                       insertAtCursor(em)
                       setShowPicker(false)
@@ -344,9 +340,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         disabled={!message.trim() || disabled || isUploading}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        className="bg-apple-blue hover:bg-blue-600 text-white h-12 w-12 rounded-2xl
-                 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
-                 disabled:transform-none flex items-center justify-center"
+        className="bg-pastel-blue hover:bg-blue-500 text-gray-100 h-12 w-12 rounded-2xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-pastel-blue/60 focus:ring-offset-2 focus:ring-offset-pastel-ink"
       >
         {isUploading ? (
           <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

@@ -32,7 +32,7 @@ export default function Header({ onlineCount = 0, totalMessages = 0, username, c
     <motion.header
       initial={{ y: -50, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="glass-effect border-b border-gray-200/50 dark:border-gray-700/50 p-4"
+      className="glass-effect border-b border-pastel-gray/50 p-4"
     >
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between">
@@ -52,16 +52,16 @@ export default function Header({ onlineCount = 0, totalMessages = 0, username, c
             </motion.div>
             
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-xl font-bold text-gray-100">
                 Chat Room for the World
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-gray-400">
                 Connect with people from around the globe
               </p>
               {username && (
                 <div className="mt-1">
-                  <span className="inline-flex items-center gap-2 text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-apple-blue" />
+                  <span className="inline-flex items-center gap-2 text-xs px-2 py-1 rounded-full bg-pastel-ink text-gray-200 border border-pastel-gray">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-pastel-teal" />
                     {countryCode && <span aria-hidden>{countryCodeToFlag(countryCode)}</span>}
                     Using name: <strong className="font-medium">{username}</strong>
                   </span>
@@ -75,7 +75,7 @@ export default function Header({ onlineCount = 0, totalMessages = 0, username, c
             initial={{ x: 20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="hidden md:flex items-center gap-6 text-sm text-gray-600 dark:text-gray-400"
+            className="hidden md:flex items-center gap-6 text-sm text-gray-400"
           >
             <div className="flex items-center gap-2">
               <Users size={16} />
@@ -94,7 +94,7 @@ export default function Header({ onlineCount = 0, totalMessages = 0, username, c
           initial={{ y: 10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
-          className="md:hidden mt-3 flex items-center justify-between text-xs text-gray-600 dark:text-gray-400"
+          className="md:hidden mt-3 flex items-center justify-between text-xs text-gray-400"
         >
           <span>{onlineCount.toLocaleString()} people online</span>
           <span className="truncate flex items-center gap-2">
@@ -147,7 +147,7 @@ function FunSubtitle() {
       initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -5 }}
-      className="text-sm text-gray-500 dark:text-gray-400 italic"
+      className="text-sm text-gray-400 italic"
     >
       {currentSubtitle}
     </motion.p>
