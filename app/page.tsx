@@ -19,6 +19,7 @@ export default function Home() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [isNearBottom, setIsNearBottom] = useState(true)
+  const [unreadCount, setUnreadCount] = useState(0)
   // Stable session id for presence tracking
   const [sessionId] = useState<string>(() => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -33,6 +34,9 @@ export default function Home() {
     const authoredBySelf = last && user?.username && last.username === user.username
     if (isNearBottom || authoredBySelf) {
       scrollToBottom()
+      setUnreadCount(0)
+    } else if (last) {
+      setUnreadCount((c) => c + 1)
     }
   }, [messages, isNearBottom, user?.username])
 
@@ -176,13 +180,14 @@ export default function Home() {
       <main className="flex-1 min-h-0 flex flex-col max-w-4xl mx-auto w-full">
         {/* Messages area */}
         <div
-          className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-1"
+          className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-1"
           ref={messagesContainerRef}
           onScroll={(e) => {
             const el = e.currentTarget
             const threshold = 100 // px from bottom
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
             setIsNearBottom(atBottom)
+            if (atBottom) setUnreadCount(0)
           }}
         >
           {isLoading ? (
@@ -221,6 +226,25 @@ export default function Home() {
             </AnimatePresence>
           )}
           <div ref={messagesEndRef} />
+          {/* Scroll to latest chip */}
+          {!isNearBottom && (
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              onClick={() => {
+                scrollToBottom()
+                setUnreadCount(0)
+              }}
+              className="absolute right-4 bottom-4 px-3 py-2 rounded-full shadow-md bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 flex items-center gap-2"
+              aria-label="Scroll to latest"
+            >
+              <span className="text-sm">Scroll to latest</span>
+              {unreadCount > 0 && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-apple-blue text-white">{unreadCount}</span>
+              )}
+            </motion.button>
+          )}
         </div>
 
         {/* Chat input */}
