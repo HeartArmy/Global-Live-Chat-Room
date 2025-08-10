@@ -59,8 +59,9 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       // SVGs (use color-scheme-specific icons; omit generic to respect media queries in Chrome)
-      { url: '/icon-light.svg?v=2', type: 'image/svg+xml', media: '(prefers-color-scheme: light)' },
-      { url: '/icon-dark.svg?v=2', type: 'image/svg+xml', media: '(prefers-color-scheme: dark)' },
+      { url: '/icon-dark.svg?v=2', type: 'image/svg+xml', media: '(prefers-color-scheme: light)' },
+      // Force light icon in dark mode as requested
+      { url: '/icon-light.svg?v=2', type: 'image/svg+xml', media: '(prefers-color-scheme: dark)' },
       // PNG fallbacks (optional)
       { url: '/favicon-32x32.png?v=2', type: 'image/png', sizes: '32x32' },
       { url: '/favicon-16x16.png?v=2', type: 'image/png', sizes: '16x16' },

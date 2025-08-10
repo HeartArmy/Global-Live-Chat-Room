@@ -17,6 +17,8 @@ export default function Home() {
   const [stats, setStats] = useState({ onlineCount: 0, totalMessages: 0 })
   const [replyTo, setReplyTo] = useState<ReplyInfo | undefined>(undefined)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const [isNearBottom, setIsNearBottom] = useState(true)
   // Stable session id for presence tracking
   const [sessionId] = useState<string>(() => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -26,8 +28,13 @@ export default function Home() {
   }
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    // Only autoscroll if user is near bottom or if the last message is from current user
+    const last = messages[messages.length - 1]
+    const authoredBySelf = last && user?.username && last.username === user.username
+    if (isNearBottom || authoredBySelf) {
+      scrollToBottom()
+    }
+  }, [messages, isNearBottom, user?.username])
 
   // Fetch messages on component mount
   useEffect(() => {
@@ -168,7 +175,16 @@ export default function Home() {
       
       <main className="flex-1 flex flex-col max-w-4xl mx-auto w-full">
         {/* Messages area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-1">
+        <div
+          className="flex-1 overflow-y-auto p-4 space-y-1"
+          ref={messagesContainerRef}
+          onScroll={(e) => {
+            const el = e.currentTarget
+            const threshold = 100 // px from bottom
+            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
+            setIsNearBottom(atBottom)
+          }}
+        >
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <motion.div

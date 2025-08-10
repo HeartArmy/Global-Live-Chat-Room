@@ -34,7 +34,7 @@ export default function ChatMessage({ message, currentUsername, index, onReply }
       transition={{ delay: index * 0.05 }}
       className={`flex mb-4 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
     >
-      <div className={`flex max-w-[80%] ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
+      <div className={`group flex max-w-[80%] ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>
         {/* Avatar */}
         <motion.div
           whileHover={{ scale: 1.1 }}
@@ -71,17 +71,7 @@ export default function ChatMessage({ message, currentUsername, index, onReply }
             ) : (
               <p className="text-sm leading-relaxed">{text}</p>
             )}
-            {onReply && (
-              <button
-                type="button"
-                onClick={() => onReply(makeReplyInfo())}
-                className={`absolute -top-3 ${isCurrentUser ? '-left-3' : '-right-3'} p-1.5 rounded-full bg-white/80 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 shadow-sm`}
-                aria-label="Reply"
-                title="Reply"
-              >
-                <CornerUpRight size={14} />
-              </button>
-            )}
+            {/* Removed floating corner reply button to make inline action clearer */}
           </div>
           
           {/* Metadata */}
@@ -91,6 +81,19 @@ export default function ChatMessage({ message, currentUsername, index, onReply }
             <span className="font-medium">{message.username}</span>
             <span>•</span>
             <span>{formatTimestamp(new Date(message.timestamp))}</span>
+            {onReply && (
+              <>
+                <span>•</span>
+                <button
+                  type="button"
+                  onClick={() => onReply(makeReplyInfo())}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700/60 opacity-80 group-hover:opacity-100 transition"
+                >
+                  <CornerUpRight size={12} />
+                  <span>Reply</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
