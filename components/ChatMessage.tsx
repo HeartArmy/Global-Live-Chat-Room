@@ -47,18 +47,25 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
           }`}
         >
           {message.username.charAt(0).toUpperCase()}
-          {/* Country flag badge */}
-          <span
-            className="absolute -bottom-1 -right-1 text-[10px] leading-none drop-shadow"
-            aria-hidden
-            title={message.countryCode || undefined}
-          >
-            {countryCodeToFlag(message.countryCode || (isCurrentUser ? currentUserCountry : undefined))}
-          </span>
         </motion.div>
         
         {/* Message bubble */}
         <div className="flex flex-col">
+          {/* Username + Country flag */}
+          <div
+            className={`flex items-center ${isCurrentUser ? 'justify-end' : 'justify-start'} gap-1 mb-1 text-xs text-gray-500`}
+          >
+            <span className="inline-flex items-center gap-1">
+              <span className="font-medium text-gray-700 dark:text-gray-300">{message.username}</span>
+              <span
+                aria-hidden
+                title={message.countryCode || undefined}
+                className="leading-none"
+              >
+                {countryCodeToFlag(message.countryCode || (isCurrentUser ? currentUserCountry : undefined))}
+              </span>
+            </span>
+          </div>
           <div className={`relative chat-bubble ${isCurrentUser ? 'chat-bubble-user' : 'chat-bubble-other'}`}>
             {message.replyTo && (
               <div className={`mb-2 text-xs rounded-lg p-2 ${isCurrentUser ? 'bg-white/20' : 'bg-black/5 dark:bg-white/10'} border border-black/5 dark:border-white/10`}>
