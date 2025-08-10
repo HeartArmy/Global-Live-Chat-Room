@@ -23,7 +23,7 @@
   }
   
   .chat-bubble-user {
-    @apply bg-pastel-blue text-gray-100 ml-auto;
+    @apply bg-pastel-ink text-gray-100 ml-auto border border-pastel-blue/50;
   }
   
   .chat-bubble-other {
