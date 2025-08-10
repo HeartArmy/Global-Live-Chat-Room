@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import { ChatMessage as ChatMessageType, ReplyInfo } from '@/types/chat'
 import { CornerUpRight } from 'lucide-react'
-import { formatTimestamp } from '@/utils/timezone'
+import { formatTimestamp, formatAbsolute } from '@/utils/timezone'
 import { countryCodeToFlag } from '@/utils/geo'
 
 interface ChatMessageProps {
@@ -40,13 +40,21 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
         {/* Avatar */}
         <motion.div
           whileHover={{ scale: 1.1 }}
-          className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+          className={`relative flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
             isCurrentUser 
               ? 'bg-apple-blue text-white ml-2' 
               : 'bg-gradient-to-br from-purple-400 to-pink-400 text-white mr-2'
           }`}
         >
           {message.username.charAt(0).toUpperCase()}
+          {/* Country flag badge */}
+          <span
+            className="absolute -bottom-1 -right-1 text-[10px] leading-none drop-shadow"
+            aria-hidden
+            title={message.countryCode || undefined}
+          >
+            {countryCodeToFlag(message.countryCode || (isCurrentUser ? currentUserCountry : undefined))}
+          </span>
         </motion.div>
         
         {/* Message bubble */}
@@ -80,7 +88,9 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
           <div className={`flex items-center gap-2 mt-1 text-xs text-gray-500 ${
             isCurrentUser ? 'flex-row-reverse' : 'flex-row'
           }`}>
-            <span>{formatTimestamp(new Date(message.timestamp))}</span>
+            <span title={formatAbsolute(new Date(message.timestamp))}>
+              {formatTimestamp(new Date(message.timestamp))}
+            </span>
             {onReply && (
               <>
                 <span>•</span>

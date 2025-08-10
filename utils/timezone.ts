@@ -31,7 +31,7 @@ export function formatTimestamp(date: Date): string {
   if (diffInHours < 24) return `${diffInHours}h ago`
   
   const diffInDays = Math.floor(diffInHours / 24)
-  if (diffInDays < 7) return `${diffInDays}d ago`
+  if (diffInDays < 7) return `${diffInDays} ${diffInDays === 1 ? 'day' : 'days'} ago`
   
   // For older messages, show the full date
   return date.toLocaleString('en-US', {
@@ -41,6 +41,20 @@ export function formatTimestamp(date: Date): string {
     year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
     hour: 'numeric',
     minute: '2-digit',
+    hour12: true,
+  }) + ' UTC'
+}
+
+export function formatAbsolute(date: Date): string {
+  return date.toLocaleString('en-US', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    weekday: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
     hour12: true,
   }) + ' UTC'
 }
