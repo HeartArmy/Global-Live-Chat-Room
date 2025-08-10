@@ -2,20 +2,15 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Send, Smile, Image as ImageIcon } from 'lucide-react'
-import dynamic from 'next/dynamic'
-// Load emoji-mart v5 styles
-import 'emoji-mart/css/emoji-mart.css'
+import { Send, Smile, Image as ImageIcon, X } from 'lucide-react'
 
-// Load emoji-mart v5 Picker + data only on the client
-const EmojiPicker = dynamic(async () => {
-  const pickerMod: any = await import('emoji-mart')
-  return pickerMod.Picker || pickerMod.default
-}, { ssr: false }) as any
+import { ReplyInfo } from '@/types/chat'
 
 interface ChatInputProps {
-  onSendMessage: (message: string) => void
+  onSendMessage: (message: string, reply?: ReplyInfo) => void
   disabled?: boolean
+  replyTo?: ReplyInfo
+  onCancelReply?: () => void
 }
 
 const funnyPlaceholders = [
@@ -31,14 +26,12 @@ const funnyPlaceholders = [
   "What's happening in your corner of the world?"
 ]
 
-export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelReply }: ChatInputProps) {
   const [message, setMessage] = useState('')
   const [currentPlaceholder, setCurrentPlaceholder] = useState(funnyPlaceholders[0])
   const [showPicker, setShowPicker] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
-  const [pickerReady, setPickerReady] = useState(true)
   const [showPasteHint, setShowPasteHint] = useState(false)
-  const [emojiData, setEmojiData] = useState<any | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const pickerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -97,8 +90,9 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (message.trim() && !disabled) {
-      onSendMessage(message.trim())
+      onSendMessage(message.trim(), replyTo)
       setMessage('')
+      if (onCancelReply) onCancelReply()
       
       // Change placeholder after sending a message
       const randomPlaceholder = funnyPlaceholders[Math.floor(Math.random() * funnyPlaceholders.length)]
@@ -156,16 +150,12 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
     }
   }, [showPicker])
 
-  // Load emoji-mart data on the client
-  useEffect(() => {
-    let mounted = true
-    import('@emoji-mart/data')
-      .then((m: any) => {
-        if (mounted) setEmojiData(m.default || m)
-      })
-      .catch((e) => console.error('Failed to load emoji data', e))
-    return () => { mounted = false }
-  }, [])
+  // Built-in emoji grid
+  const commonEmojis = [
+    '😀','😁','😂','🤣','😅','😊','😍','😘','😎','🤩','🥳','🤔','🤨','😐','🙄','😴','🤤','😷','🤒','🤕',
+    '👍','👎','👏','🙏','💪','🔥','✨','🌟','💯','✅','❌','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎',
+    '🐶','🐱','🦊','🐼','🐨','🐵','🦄','🐧','🐸','🐙','🍕','🍔','🍟','🌮','🍣','🍪','🍩','☕','🍵','🍺'
+  ]
 
   // Paste uploads will be handled by posting to our server route
 
@@ -178,6 +168,30 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
       transition={{ delay: 0.3 }}
     >
       <div className="flex-1 relative">
+        {replyTo && (
+          <div className="mb-2 -mt-1 flex items-start gap-2 p-2 rounded-xl bg-black/5 dark:bg-white/10 border border-black/5 dark:border-white/10">
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-medium opacity-80">Replying to {replyTo.username}</div>
+              <div className="text-xs opacity-70 truncate flex items-center gap-2">
+                {replyTo.imageUrl && (
+                  <img src={replyTo.imageUrl} alt="reply" className="w-6 h-6 rounded object-cover" />
+                )}
+                <span className="truncate">{replyTo.preview}</span>
+              </div>
+            </div>
+            {onCancelReply && (
+              <button
+                type="button"
+                onClick={onCancelReply}
+                className="shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-200/60 dark:hover:bg-gray-700/60"
+                aria-label="Cancel reply"
+                title="Cancel reply"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        )}
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -289,27 +303,24 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
             ref={pickerRef}
             className="absolute right-0 bottom-14 z-50 drop-shadow-xl"
           >
-            {emojiData ? (
-              <EmojiPicker
-                data={emojiData}
-                onEmojiSelect={(emoji: any) => {
-                  try {
-                    const char = emoji?.native || ''
-                    if (char) insertAtCursor(char)
-                  } catch (e) {
-                    console.error('Emoji select error', e)
-                    setShowPicker(false)
-                  }
-                }}
-                theme={typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'}
-                previewPosition="none"
-                navPosition="top"
-                perLine={8}
-                searchPosition="sticky"
-              />
-            ) : (
-              <div className="px-3 py-2 text-xs rounded-lg bg-gray-900 text-white shadow-lg dark:bg-black/80">Loading emojis…</div>
-            )}
+            <div className="p-2 w-64 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+              <div className="grid grid-cols-8 gap-1">
+                {commonEmojis.map((em) => (
+                  <button
+                    key={em}
+                    type="button"
+                    className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 dark:hover:bg-gray-700/60 text-lg"
+                    onClick={() => {
+                      insertAtCursor(em)
+                      setShowPicker(false)
+                    }}
+                    aria-label={`Insert ${em}`}
+                  >
+                    {em}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>

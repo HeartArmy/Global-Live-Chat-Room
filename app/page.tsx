@@ -7,7 +7,7 @@ import ChatMessage from '@/components/ChatMessage'
 import ChatInput from '@/components/ChatInput'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
-import { ChatMessage as ChatMessageType, User } from '@/types/chat'
+import { ChatMessage as ChatMessageType, User, ReplyInfo } from '@/types/chat'
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null)
@@ -15,6 +15,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
   const [stats, setStats] = useState({ onlineCount: 0, totalMessages: 0 })
+  const [replyTo, setReplyTo] = useState<ReplyInfo | undefined>(undefined)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   // Stable session id for presence tracking
   const [sessionId] = useState<string>(() => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
@@ -68,7 +69,7 @@ export default function Home() {
     }
   }
 
-  const handleSendMessage = async (message: string) => {
+  const handleSendMessage = async (message: string, reply?: ReplyInfo) => {
     if (!user || isSending) return
 
     setIsSending(true)
@@ -81,12 +82,14 @@ export default function Home() {
         body: JSON.stringify({
           username: user.username,
           message,
+          replyTo: reply || undefined,
         }),
       })
 
       if (response.ok) {
         const newMessage = await response.json()
         setMessages(prev => [...prev, newMessage])
+        setReplyTo(undefined)
         fetchStats() // Update stats after sending
       } else {
         const error = await response.json()
@@ -196,6 +199,7 @@ export default function Home() {
                   message={message}
                   currentUsername={user?.username}
                   index={index}
+                  onReply={(info) => setReplyTo(info)}
                 />
               ))}
             </AnimatePresence>
@@ -205,7 +209,12 @@ export default function Home() {
 
         {/* Chat input */}
         {user ? (
-          <ChatInput onSendMessage={handleSendMessage} disabled={isSending} />
+          <ChatInput
+            onSendMessage={handleSendMessage}
+            disabled={isSending}
+            replyTo={replyTo}
+            onCancelReply={() => setReplyTo(undefined)}
+          />
         ) : (
           <motion.div
             initial={{ y: 50, opacity: 0 }}

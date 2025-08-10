@@ -27,7 +27,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { username, message } = body
+    const { username, message, replyTo } = body
 
     if (!username || !message) {
       return NextResponse.json(
@@ -56,7 +56,13 @@ export async function POST(request: NextRequest) {
       username: username.trim(),
       message: message.trim(),
       timestamp,
-      timezone
+      timezone,
+      replyTo: replyTo && typeof replyTo === 'object' ? {
+        id: String(replyTo.id || ''),
+        username: String(replyTo.username || ''),
+        preview: String(replyTo.preview || ''),
+        imageUrl: replyTo.imageUrl ? String(replyTo.imageUrl) : undefined,
+      } : undefined,
     }
 
     const db = await getDatabase()
