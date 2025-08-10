@@ -172,10 +172,10 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     >
       <div className="flex-1 relative">
         {replyTo && (
-          <div className="mb-2 -mt-1 flex items-start gap-2 p-2 rounded-xl bg-black/5 dark:bg-white/10 border border-black/5 dark:border-white/10">
+          <div className="mb-2 -mt-1 flex items-start gap-2 p-2 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 pl-3 border-l-4 border-l-blue-400 dark:border-l-blue-500">
             <div className="flex-1 min-w-0">
-              <div className="text-xs font-medium opacity-80">Replying to {replyTo.username}</div>
-              <div className="text-xs opacity-70 truncate flex items-center gap-2">
+              <div className="text-xs font-medium text-blue-800 dark:text-blue-200">Replying to {replyTo.username}</div>
+              <div className="text-xs text-gray-700 dark:text-gray-300 truncate flex items-center gap-2">
                 {replyTo.imageUrl && (
                   <img src={replyTo.imageUrl} alt="reply" className="w-6 h-6 rounded object-cover" />
                 )}
@@ -186,7 +186,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
               <button
                 type="button"
                 onClick={onCancelReply}
-                className="shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-200/60 dark:hover:bg-gray-700/60"
+                className="shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-blue-700 hover:text-blue-900 dark:text-blue-200 dark:hover:text-white hover:bg-blue-100 dark:hover:bg-blue-800/50"
                 aria-label="Cancel reply"
                 title="Cancel reply"
               >
