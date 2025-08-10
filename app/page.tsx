@@ -20,6 +20,7 @@ export default function Home() {
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [isNearBottom, setIsNearBottom] = useState(true)
   const [autoScrollLocked, setAutoScrollLocked] = useState(false)
+  const [showScrollToLatest, setShowScrollToLatest] = useState(false)
   const didInitialScroll = useRef(false)
   const [countryCode, setCountryCode] = useState<string | null>(null)
   // Stable session id for presence tracking
@@ -66,7 +67,7 @@ export default function Home() {
         setMessages(data)
       }
     } catch (error) {
-      console.error('Error fetching messages:', error)
+      // swallow errors in UI
     } finally {
       setIsLoading(false)
     }
@@ -80,7 +81,7 @@ export default function Home() {
         setStats(data)
       }
     } catch (error) {
-      console.error('Error fetching stats:', error)
+      // swallow errors in UI
     }
   }
 
@@ -97,6 +98,7 @@ export default function Home() {
         body: JSON.stringify({
           username: user.username,
           message,
+          countryCode: countryCode || undefined,
           replyTo: reply || undefined,
         }),
       })
@@ -108,11 +110,11 @@ export default function Home() {
         fetchStats() // Update stats after sending
       } else {
         const error = await response.json()
-        console.error('Error sending message:', error)
+        // swallow errors in UI
         // Could show a toast notification here
       }
     } catch (error) {
-      console.error('Error sending message:', error)
+      // swallow errors in UI
     } finally {
       setIsSending(false)
     }
@@ -195,14 +197,16 @@ export default function Home() {
           ref={messagesContainerRef}
           onScroll={(e) => {
             const el = e.currentTarget
-            const threshold = 16 // px from bottom (tighter to avoid unwanted snaps)
+            const threshold = 16 // px from bottom for auto-follow
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
             setIsNearBottom(atBottom)
-            if (atBottom) {
-              setAutoScrollLocked(false)
-            } else {
-              setAutoScrollLocked(true)
-            }
+            setAutoScrollLocked(!atBottom)
+
+            // Compute how far from top we are: 0 (top) -> 1 (bottom)
+            const maxScroll = Math.max(1, el.scrollHeight - el.clientHeight)
+            const ratio = el.scrollTop / maxScroll
+            // Show only when scrolled to top 30% of the list
+            setShowScrollToLatest(ratio <= 0.3)
           }}
         >
           {isLoading ? (
@@ -243,7 +247,7 @@ export default function Home() {
           )}
           <div ref={messagesEndRef} />
           {/* Scroll to latest chip */}
-          {!isNearBottom && (
+          {showScrollToLatest && (
             <motion.button
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

@@ -15,7 +15,6 @@ export async function GET() {
 
     return NextResponse.json(messages)
   } catch (error) {
-    console.error('Error fetching messages:', error)
     return NextResponse.json(
       { error: 'Failed to fetch messages' },
       { status: 500 }
@@ -27,7 +26,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { username, message, replyTo } = body
+    const { username, message, replyTo, countryCode } = body
 
     if (!username || !message) {
       return NextResponse.json(
@@ -52,11 +51,15 @@ export async function POST(request: NextRequest) {
 
     const { timestamp, timezone } = getCurrentTimestamp()
     
+    const cc = typeof countryCode === 'string' ? countryCode.trim().toUpperCase() : undefined
+    const validCC = cc && /^[A-Z]{2}$/.test(cc) ? cc : undefined
+
     const newMessage: Omit<ChatMessage, '_id'> = {
       username: username.trim(),
       message: message.trim(),
       timestamp,
       timezone,
+      countryCode: validCC,
       replyTo: replyTo && typeof replyTo === 'object' ? {
         id: String(replyTo.id || ''),
         username: String(replyTo.username || ''),
@@ -75,7 +78,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(insertedMessage, { status: 201 })
   } catch (error) {
-    console.error('Error sending message:', error)
     return NextResponse.json(
       { error: 'Failed to send message' },
       { status: 500 }

@@ -24,7 +24,6 @@ export async function GET() {
       uniqueUsers: uniqueUsers.length
     })
   } catch (error) {
-    console.error('Error fetching stats:', error)
     return NextResponse.json(
       { 
         totalMessages: 0,

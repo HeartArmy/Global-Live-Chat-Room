@@ -73,14 +73,12 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         throw new Error(err?.error || 'Upload failed')
       }
       const data = await res.json()
-      console.log('[upload] server response', data)
       if (data?.url) {
         onSendMessage(`![image](${data.url})`)
       } else {
         alert('Upload succeeded but no URL was returned. Please try again.')
       }
     } catch (err: any) {
-      console.error(err)
       alert(err?.message || 'Failed to upload image')
     } finally {
       setIsUploading(false)
@@ -221,20 +219,20 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
           placeholder={currentPlaceholder}
           disabled={disabled}
           rows={1}
-          className="chat-textarea w-full px-4 py-3 pr-20 rounded-2xl border border-gray-200 dark:border-gray-700 
+          className="chat-textarea w-full px-4 pr-20 rounded-2xl border border-gray-200 dark:border-gray-700 
                     bg-white dark:bg-gray-800 text-gray-900 dark:text-white
                     focus:outline-none focus:ring-2 focus:ring-apple-blue focus:border-transparent
-                    transition-all duration-200 resize-none min-h-[48px] max-h-32
+                    transition-all duration-200 resize-none h-12 max-h-32
                     disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ 
-            height: 'auto',
-            minHeight: '48px'
+          style={{
+            height: '48px',
           }}
           ref={textareaRef}
           onInput={(e) => {
             const target = e.target as HTMLTextAreaElement
             target.style.height = 'auto'
-            target.style.height = `${Math.min(target.scrollHeight, 128)}px`
+            const next = Math.max(48, Math.min(target.scrollHeight, 128))
+            target.style.height = `${next}px`
           }}
         />
         {/* Removed file chooser: paste-only flow */}

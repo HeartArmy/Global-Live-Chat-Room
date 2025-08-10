@@ -11,6 +11,7 @@ export interface ChatMessage {
   message: string
   timestamp: Date
   timezone: string
+  countryCode?: string
   replyTo?: ReplyInfo
 }
 

@@ -13,7 +13,6 @@ export async function GET() {
 
     return NextResponse.json({ activeCount })
   } catch (e) {
-    console.error('GET /api/presence error', e)
     return NextResponse.json({ activeCount: 0 }, { status: 200 })
   }
 }
@@ -50,7 +49,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, activeCount })
   } catch (e) {
-    console.error('POST /api/presence error', e)
     return NextResponse.json({ ok: false }, { status: 200 })
   }
 }

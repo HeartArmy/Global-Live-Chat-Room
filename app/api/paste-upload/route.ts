@@ -21,8 +21,7 @@ export async function POST(req: Request) {
     const hasSecret = Boolean(process.env.UPLOADTHING_SECRET)
     const hasAppId = Boolean(process.env.UPLOADTHING_APP_ID)
     if (!hasSecret) {
-      // Safe diagnostics for Vercel logs
-      console.error('[paste-upload] Missing envs', { hasSecret, hasAppId })
+      // Diagnostics removed from console to avoid noisy logs
       return NextResponse.json(
         { error: 'Upload server not configured: missing UPLOADTHING_SECRET (set in Vercel env and redeploy)' },
         { status: 500 }
@@ -51,10 +50,6 @@ export async function POST(req: Request) {
     try {
       uploaded = await utapi.uploadFiles(file)
     } catch (err: any) {
-      console.error('[paste-upload] uploadFiles threw', {
-        message: err?.message,
-        name: err?.name,
-      })
       return NextResponse.json({ error: err?.message || 'Upload failed' }, { status: 500 })
     }
 
@@ -68,18 +63,12 @@ export async function POST(req: Request) {
 
     if (!url) {
       const rawError = uploaded?.error
-      console.error('[paste-upload] uploadFiles result without url', {
-        hasData: Boolean(uploaded?.data),
-        rawError,
-        fileMeta: { type: file.type, size: file.size },
-      })
       const errMsg = typeof rawError === 'string' ? rawError : (rawError?.message || 'Upload failed')
       return NextResponse.json({ error: errMsg }, { status: 500 })
     }
 
     return NextResponse.json({ url })
   } catch (e: any) {
-    console.error('paste-upload error', e)
     return NextResponse.json({ error: e?.message || 'Upload failed' }, { status: 500 })
   }
 }
