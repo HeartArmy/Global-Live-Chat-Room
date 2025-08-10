@@ -7,7 +7,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 // Strict server-side validation
-const MAX_SIZE_BYTES = 512 * 1024 // 512 KB hard cap server-side
+const MAX_SIZE_BYTES = 1 * 1024 * 1024 // 1 MB server-side
 const ALLOWED_TYPES = new Set([
   'image/png',
   'image/jpeg',
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     }
 
     if (file.size > MAX_SIZE_BYTES) {
-      return NextResponse.json({ error: 'Image too large. Max 512KB on server' }, { status: 413 })
+      return NextResponse.json({ error: 'Image too large. Max 1MB on server' }, { status: 413 })
     }
 
     const utapi = new UTApi()
@@ -61,7 +61,10 @@ export async function POST(req: Request) {
     // Handle UploadThing response
     // uploaded can be { data, error } or array depending on version
     // Normalize to a single item with a url
-    const url = uploaded?.data?.url ?? (Array.isArray(uploaded?.data) ? uploaded.data[0]?.url : undefined)
+    const dataItem = uploaded?.data ?? (Array.isArray(uploaded?.data) ? uploaded.data[0] : undefined)
+    const urlFromApi = dataItem?.url as string | undefined
+    const key = dataItem?.key as string | undefined
+    const url = urlFromApi || (key ? `https://utfs.io/f/${key}` : undefined)
 
     if (!url) {
       const rawError = uploaded?.error

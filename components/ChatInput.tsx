@@ -4,14 +4,13 @@ import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Send, Smile, Image as ImageIcon } from 'lucide-react'
 import dynamic from 'next/dynamic'
-// Optional: load emoji-mart v5 styles
-// import 'emoji-mart/css/emoji-mart.css'
+// Load emoji-mart v5 styles
+import 'emoji-mart/css/emoji-mart.css'
 
-// Load emoji-mart Picker only on the client to satisfy TS/SSR, and type as any
+// Load emoji-mart v5 Picker + data only on the client
 const EmojiPicker = dynamic(async () => {
-  // Using emoji-mart v5 which exports the React Picker from 'emoji-mart'
-  const mod: any = await import('emoji-mart')
-  return mod.Picker || mod.default
+  const pickerMod: any = await import('emoji-mart')
+  return pickerMod.Picker || pickerMod.default
 }, { ssr: false }) as any
 
 interface ChatInputProps {
@@ -39,11 +38,12 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [pickerReady, setPickerReady] = useState(true)
   const [showPasteHint, setShowPasteHint] = useState(false)
+  const [emojiData, setEmojiData] = useState<any | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const pickerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
-  const MAX_SIZE_BYTES = 512 * 1024 // 512 KB
+  const MAX_SIZE_BYTES = 1 * 1024 * 1024 // 1 MB
   const ACCEPT_TYPES = [
     'image/png',
     'image/jpeg',
@@ -57,7 +57,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
       return false
     }
     if (file.size > MAX_SIZE_BYTES) {
-      alert('Image is too large. Max size is 512 KB.')
+      alert('Image is too large. Max size is 1 MB.')
       return false
     }
     return true
@@ -80,7 +80,12 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
         throw new Error(err?.error || 'Upload failed')
       }
       const data = await res.json()
-      if (data?.url) onSendMessage(`![image](${data.url})`)
+      console.log('[upload] server response', data)
+      if (data?.url) {
+        onSendMessage(`![image](${data.url})`)
+      } else {
+        alert('Upload succeeded but no URL was returned. Please try again.')
+      }
     } catch (err: any) {
       console.error(err)
       alert(err?.message || 'Failed to upload image')
@@ -150,6 +155,17 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
       document.removeEventListener('keydown', onKey)
     }
   }, [showPicker])
+
+  // Load emoji-mart data on the client
+  useEffect(() => {
+    let mounted = true
+    import('@emoji-mart/data')
+      .then((m: any) => {
+        if (mounted) setEmojiData(m.default || m)
+      })
+      .catch((e) => console.error('Failed to load emoji data', e))
+    return () => { mounted = false }
+  }, [])
 
   // Paste uploads will be handled by posting to our server route
 
@@ -263,7 +279,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
         {showPasteHint && (
           <div className="absolute right-0 bottom-14 z-40 select-none">
             <div className="px-3 py-2 text-xs rounded-lg bg-gray-900 text-white shadow-lg dark:bg-black/80">
-              Paste an image here (Cmd/Ctrl + V). Max 512 KB.
+              Paste an image here (Cmd/Ctrl + V). Max 1 MB.
             </div>
           </div>
         )}
@@ -273,23 +289,27 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
             ref={pickerRef}
             className="absolute right-0 bottom-14 z-50 drop-shadow-xl"
           >
-            <EmojiPicker
-              onSelect={(emoji: any) => {
-                // For older emoji-mart versions that use onSelect
-                try {
-                  const char = emoji?.native || emoji?.shortcodes || ''
-                  if (char) insertAtCursor(char)
-                } catch (e) {
-                  console.error('Emoji select error', e)
-                  setShowPicker(false)
-                }
-              }}
-              theme={typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'}
-              previewPosition="none"
-              navPosition="top"
-              perLine={8}
-              searchPosition="sticky"
-            />
+            {emojiData ? (
+              <EmojiPicker
+                data={emojiData}
+                onEmojiSelect={(emoji: any) => {
+                  try {
+                    const char = emoji?.native || ''
+                    if (char) insertAtCursor(char)
+                  } catch (e) {
+                    console.error('Emoji select error', e)
+                    setShowPicker(false)
+                  }
+                }}
+                theme={typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'}
+                previewPosition="none"
+                navPosition="top"
+                perLine={8}
+                searchPosition="sticky"
+              />
+            ) : (
+              <div className="px-3 py-2 text-xs rounded-lg bg-gray-900 text-white shadow-lg dark:bg-black/80">Loading emojis…</div>
+            )}
           </div>
         )}
       </div>
