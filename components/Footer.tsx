@@ -54,14 +54,17 @@ export default function Footer() {
               <Mail size={16} />
             </motion.a>
             
-            <motion.div
+            <motion.a
+              href="https://github.com/HeartArmy/live-chat"
+              target="_blank"
+              rel="noopener noreferrer"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-              title="Open source soon!"
+              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              title="View on GitHub"
             >
               <Github size={16} />
-            </motion.div>
+            </motion.a>
           </div>
         </div>
 

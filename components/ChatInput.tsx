@@ -7,16 +7,12 @@ import { motion } from 'framer-motion'
 import { Send, Smile, Image as ImageIcon } from 'lucide-react'
 import data from '@emoji-mart/data'
 import dynamic from 'next/dynamic'
-import { UploadButton } from '@uploadthing/react'
 
 // Load emoji-mart Picker only on the client to satisfy TS/SSR, and type as any
 const EmojiPicker = dynamic(async () => {
   const mod: any = await import('emoji-mart')
   return mod.Picker || mod.default
 }, { ssr: false }) as any
-
-// UploadThing's UploadButton types vary by version; alias to any to avoid generic mismatch
-const AnyUploadButton: any = UploadButton as any
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void
@@ -41,6 +37,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   const [currentPlaceholder, setCurrentPlaceholder] = useState(funnyPlaceholders[0])
   const [showPicker, setShowPicker] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [pickerReady, setPickerReady] = useState(true)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const pickerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -204,48 +201,20 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
             target.style.height = `${Math.min(target.scrollHeight, 128)}px`
           }}
         />
-        {/* UploadThing button, styled as an icon button */}
-        <div className="absolute right-10 top-1/2 -translate-y-1/2">
-          <AnyUploadButton
-            endpoint="imageUploader"
-            onBeforeUploadBegin={(files: File[]) => {
-              // client-side validation
-              const valid = files.filter((f: File) => validateFile(f))
-              if (!valid.length) throw new Error('No valid image selected')
-              setIsUploading(true)
-              return valid.slice(0, 1)
-            }}
-            onClientUploadComplete={(res: Array<{ url?: string }>) => {
-              const url = res?.[0]?.url
-              if (url) onSendMessage(`![image](${url})`)
-              setIsUploading(false)
-            }}
-            onUploadError={(err: Error) => {
-              console.error(err)
-              alert(err?.message || 'Failed to upload image')
-              setIsUploading(false)
-            }}
-            appearance={{
-              button: 'p-0 m-0 bg-transparent hover:bg-transparent',
-              container: 'm-0 p-0',
-              allowedContent: 'hidden',
-            }}
-            content={{
-              button({ ready }: { ready: boolean }) {
-                return (
-                  <button
-                    type="button"
-                    aria-label="Upload image"
-                    disabled={!ready || disabled || isUploading}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                  >
-                    <ImageIcon size={20} />
-                  </button>
-                )
-              },
-            }}
-          />
-        </div>
+        {/* Hidden file input for manual selection */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPT_TYPES.join(',')}
+          className="hidden"
+          onChange={async (e) => {
+            const files = Array.from(e.target.files || [])
+            await handleFilesUpload(files as File[])
+            // reset value so selecting the same file again still triggers change
+            e.currentTarget.value = ''
+          }}
+          disabled={disabled || isUploading}
+        />
         
         {/* Emoji button + picker */}
         <motion.button
@@ -259,7 +228,18 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
           <Smile size={20} />
         </motion.button>
 
-        {/* The image upload icon is rendered by UploadButton content above */}
+        {/* Image upload icon (triggers hidden input) */}
+        <motion.button
+          type="button"
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          className="absolute right-10 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+          aria-label="Upload image"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled || isUploading}
+        >
+          <ImageIcon size={20} />
+        </motion.button>
 
         {showPicker && (
           <div
@@ -269,8 +249,13 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
             <EmojiPicker
               data={data}
               onEmojiSelect={(emoji: any) => {
-                const char = emoji?.native || emoji?.shortcodes || ''
-                if (char) insertAtCursor(char)
+                try {
+                  const char = emoji?.native || emoji?.shortcodes || ''
+                  if (char) insertAtCursor(char)
+                } catch (e) {
+                  console.error('Emoji select error', e)
+                  setShowPicker(false)
+                }
               }}
               theme={typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'}
               previewPosition="none"
