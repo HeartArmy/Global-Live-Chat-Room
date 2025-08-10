@@ -1,5 +1,3 @@
-  // Using UploadButton for button uploads. Paste-to-upload will be enabled after upgrading UploadThing.
-
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
@@ -38,9 +36,9 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
   const [showPicker, setShowPicker] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [pickerReady, setPickerReady] = useState(true)
+  const [showPasteHint, setShowPasteHint] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const pickerRef = useRef<HTMLDivElement | null>(null)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const MAX_SIZE_BYTES = 500 * 1024 // 500 KB
   const ACCEPT_TYPES = [
@@ -201,20 +199,7 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
             target.style.height = `${Math.min(target.scrollHeight, 128)}px`
           }}
         />
-        {/* Hidden file input for manual selection */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={ACCEPT_TYPES.join(',')}
-          className="hidden"
-          onChange={async (e) => {
-            const files = Array.from(e.target.files || [])
-            await handleFilesUpload(files as File[])
-            // reset value so selecting the same file again still triggers change
-            e.currentTarget.value = ''
-          }}
-          disabled={disabled || isUploading}
-        />
+        {/* Removed file chooser: paste-only flow */}
         
         {/* Emoji button + picker */}
         <motion.button
@@ -235,11 +220,24 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
           whileTap={{ scale: 0.9 }}
           className="absolute right-10 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           aria-label="Upload image"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            if (disabled) return
+            setShowPasteHint(true)
+            // auto-hide after a short delay
+            setTimeout(() => setShowPasteHint(false), 2500)
+          }}
           disabled={disabled || isUploading}
         >
           <ImageIcon size={20} />
         </motion.button>
+
+        {showPasteHint && (
+          <div className="absolute right-0 bottom-14 z-40 select-none">
+            <div className="px-3 py-2 text-xs rounded-lg bg-gray-900 text-white shadow-lg dark:bg-black/80">
+              Paste an image here (Cmd/Ctrl + V). Max 500 KB.
+            </div>
+          </div>
+        )}
 
         {showPicker && (
           <div
