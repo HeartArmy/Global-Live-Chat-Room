@@ -61,7 +61,7 @@ export default function Home() {
 
   const fetchMessages = async () => {
     try {
-      const response = await fetch('/api/messages')
+      const response = await fetch('/api/messages', { cache: 'no-store' })
       if (response.ok) {
         const data = await response.json()
         setMessages(data)
@@ -75,7 +75,7 @@ export default function Home() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/stats')
+      const response = await fetch('/api/stats', { cache: 'no-store' })
       if (response.ok) {
         const data = await response.json()
         setStats(data)
@@ -90,6 +90,17 @@ export default function Home() {
 
     setIsSending(true)
     try {
+      // Ensure we have a country code; fetch on-demand if missing
+      let cc = countryCode
+      if (!cc) {
+        try {
+          const r = await fetch('/api/geo', { cache: 'no-store' })
+          if (r.ok) {
+            const d = await r.json()
+            cc = (d?.countryCode as string | null) || null
+          }
+        } catch {}
+      }
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
@@ -98,7 +109,7 @@ export default function Home() {
         body: JSON.stringify({
           username: user.username,
           message,
-          countryCode: countryCode || undefined,
+          countryCode: cc || undefined,
           replyTo: reply || undefined,
         }),
       })

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+export const dynamic = 'force-dynamic'
 import { getDatabase } from '@/lib/mongodb'
 import { ChatMessage } from '@/types/chat'
 import { getCurrentTimestamp } from '@/utils/timezone'
@@ -53,13 +54,22 @@ export async function POST(request: NextRequest) {
     
     const cc = typeof countryCode === 'string' ? countryCode.trim().toUpperCase() : undefined
     const validCC = cc && /^[A-Z]{2}$/.test(cc) ? cc : undefined
+    // Fallback: try to infer from edge/CDN headers if client couldn't send it
+    const headerCountryRaw = (
+      request.headers.get('x-vercel-ip-country') ||
+      request.headers.get('cf-ipcountry') ||
+      request.headers.get('x-country') ||
+      ''
+    ).toUpperCase()
+    const headerCC = /^[A-Z]{2}$/.test(headerCountryRaw) ? headerCountryRaw : undefined
+    const finalCC = validCC || headerCC
 
     const newMessage: Omit<ChatMessage, '_id'> = {
       username: username.trim(),
       message: message.trim(),
       timestamp,
       timezone,
-      countryCode: validCC,
+      countryCode: finalCC,
       replyTo: replyTo && typeof replyTo === 'object' ? {
         id: String(replyTo.id || ''),
         username: String(replyTo.username || ''),
