@@ -20,6 +20,7 @@ export default function Home() {
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const [isNearBottom, setIsNearBottom] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [autoScrollLocked, setAutoScrollLocked] = useState(false)
   // Stable session id for presence tracking
   const [sessionId] = useState<string>(() => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -29,16 +30,15 @@ export default function Home() {
   }
 
   useEffect(() => {
-    // Only autoscroll if user is near bottom or if the last message is from current user
+    // Only autoscroll if user is near bottom and not locked
     const last = messages[messages.length - 1]
-    const authoredBySelf = last && user?.username && last.username === user.username
-    if (isNearBottom || authoredBySelf) {
+    if (isNearBottom && !autoScrollLocked) {
       scrollToBottom()
       setUnreadCount(0)
     } else if (last) {
       setUnreadCount((c) => c + 1)
     }
-  }, [messages, isNearBottom, user?.username])
+  }, [messages, isNearBottom, autoScrollLocked])
 
   // Fetch messages on component mount
   useEffect(() => {
@@ -175,7 +175,7 @@ export default function Home() {
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-apple-dark dark:to-gray-800 flex flex-col">
-      <Header onlineCount={stats.onlineCount} totalMessages={stats.totalMessages} />
+      <Header onlineCount={stats.onlineCount} totalMessages={stats.totalMessages} username={user?.username} />
       
       <main className="flex-1 min-h-0 flex flex-col max-w-4xl mx-auto w-full">
         {/* Messages area */}
@@ -184,10 +184,15 @@ export default function Home() {
           ref={messagesContainerRef}
           onScroll={(e) => {
             const el = e.currentTarget
-            const threshold = 100 // px from bottom
+            const threshold = 16 // px from bottom (tighter to avoid unwanted snaps)
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
             setIsNearBottom(atBottom)
-            if (atBottom) setUnreadCount(0)
+            if (atBottom) {
+              setUnreadCount(0)
+              setAutoScrollLocked(false)
+            } else {
+              setAutoScrollLocked(true)
+            }
           }}
         >
           {isLoading ? (
@@ -235,6 +240,7 @@ export default function Home() {
               onClick={() => {
                 scrollToBottom()
                 setUnreadCount(0)
+                setAutoScrollLocked(false)
               }}
               className="absolute right-4 bottom-4 px-3 py-2 rounded-full shadow-md bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 flex items-center gap-2"
               aria-label="Scroll to latest"

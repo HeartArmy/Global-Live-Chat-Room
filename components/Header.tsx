@@ -8,9 +8,10 @@ import { useEffect, useState } from 'react'
 interface HeaderProps {
   onlineCount?: number
   totalMessages?: number
+  username?: string
 }
 
-export default function Header({ onlineCount = 0, totalMessages = 0 }: HeaderProps) {
+export default function Header({ onlineCount = 0, totalMessages = 0, username }: HeaderProps) {
   const [currentTime, setCurrentTime] = useState('')
 
   useEffect(() => {
@@ -55,6 +56,14 @@ export default function Header({ onlineCount = 0, totalMessages = 0 }: HeaderPro
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Connect with people from around the globe
               </p>
+              {username && (
+                <div className="mt-1">
+                  <span className="inline-flex items-center gap-2 text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-apple-blue" />
+                    Using name: <strong className="font-medium">{username}</strong>
+                  </span>
+                </div>
+              )}
             </div>
           </motion.div>
 
@@ -69,6 +78,11 @@ export default function Header({ onlineCount = 0, totalMessages = 0 }: HeaderPro
               <Users size={16} />
               <span>{onlineCount.toLocaleString()} online</span>
             </div>
+            {username && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">{username}</span>
+              </div>
+            )}
             
             <div className="flex items-center gap-2">
               <Clock size={16} />
@@ -85,7 +99,14 @@ export default function Header({ onlineCount = 0, totalMessages = 0 }: HeaderPro
           className="md:hidden mt-3 flex items-center justify-between text-xs text-gray-600 dark:text-gray-400"
         >
           <span>{onlineCount.toLocaleString()} people online</span>
-          <span>{totalMessages.toLocaleString()} messages shared</span>
+          <span className="truncate flex items-center gap-2">
+            {username && (
+              <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
+                {username}
+              </span>
+            )}
+            {totalMessages.toLocaleString()} messages
+          </span>
         </motion.div>
 
         {/* Fun subtitle that rotates */}
