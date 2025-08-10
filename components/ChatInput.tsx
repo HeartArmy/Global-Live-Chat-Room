@@ -3,11 +3,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Send, Smile, Image as ImageIcon } from 'lucide-react'
-import data from '@emoji-mart/data'
 import dynamic from 'next/dynamic'
 
 // Load emoji-mart Picker only on the client to satisfy TS/SSR, and type as any
 const EmojiPicker = dynamic(async () => {
+  // Using emoji-mart v5 which exports the React Picker from 'emoji-mart'
   const mod: any = await import('emoji-mart')
   return mod.Picker || mod.default
 }, { ssr: false }) as any
@@ -243,8 +243,17 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
             className="absolute right-0 bottom-14 z-50 drop-shadow-xl"
           >
             <EmojiPicker
-              data={data}
               onEmojiSelect={(emoji: any) => {
+                try {
+                  const char = emoji?.native || emoji?.shortcodes || ''
+                  if (char) insertAtCursor(char)
+                } catch (e) {
+                  console.error('Emoji select error', e)
+                  setShowPicker(false)
+                }
+              }}
+              onSelect={(emoji: any) => {
+                // For older emoji-mart versions that use onSelect
                 try {
                   const char = emoji?.native || emoji?.shortcodes || ''
                   if (char) insertAtCursor(char)
