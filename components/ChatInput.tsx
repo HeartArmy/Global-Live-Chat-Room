@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Send, Smile, Image as ImageIcon } from 'lucide-react'
 import dynamic from 'next/dynamic'
+// Optional: load emoji-mart v5 styles
+// import 'emoji-mart/css/emoji-mart.css'
 
 // Load emoji-mart Picker only on the client to satisfy TS/SSR, and type as any
 const EmojiPicker = dynamic(async () => {
@@ -212,9 +214,14 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
             const list = e.target.files
             if (!list || !list.length) return
             const files = Array.from(list)
-            await handleFilesUpload(files)
-            // Allow selecting the same file again in future
-            e.currentTarget.value = ''
+            try {
+              await handleFilesUpload(files)
+            } finally {
+              // Allow selecting the same file again in future
+              if (fileInputRef.current) {
+                fileInputRef.current.value = ''
+              }
+            }
           }}
         />
 
@@ -267,15 +274,6 @@ export default function ChatInput({ onSendMessage, disabled }: ChatInputProps) {
             className="absolute right-0 bottom-14 z-50 drop-shadow-xl"
           >
             <EmojiPicker
-              onEmojiSelect={(emoji: any) => {
-                try {
-                  const char = emoji?.native || emoji?.shortcodes || ''
-                  if (char) insertAtCursor(char)
-                } catch (e) {
-                  console.error('Emoji select error', e)
-                  setShowPicker(false)
-                }
-              }}
               onSelect={(emoji: any) => {
                 // For older emoji-mart versions that use onSelect
                 try {

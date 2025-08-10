@@ -47,16 +47,31 @@ export async function POST(req: Request) {
     const utapi = new UTApi()
 
     // Upload using UploadThing server API
-    const uploaded = await utapi.uploadFiles(file)
+    let uploaded: any
+    try {
+      uploaded = await utapi.uploadFiles(file)
+    } catch (err: any) {
+      console.error('[paste-upload] uploadFiles threw', {
+        message: err?.message,
+        name: err?.name,
+      })
+      return NextResponse.json({ error: err?.message || 'Upload failed' }, { status: 500 })
+    }
 
     // Handle UploadThing response
     // uploaded can be { data, error } or array depending on version
     // Normalize to a single item with a url
-    const url = (uploaded as any)?.data?.url ?? (Array.isArray((uploaded as any)?.data) ? (uploaded as any).data[0]?.url : undefined)
+    const url = uploaded?.data?.url ?? (Array.isArray(uploaded?.data) ? uploaded.data[0]?.url : undefined)
 
     if (!url) {
-      const errMsg = (uploaded as any)?.error ?? 'Upload failed'
-      return NextResponse.json({ error: typeof errMsg === 'string' ? errMsg : 'Upload failed' }, { status: 500 })
+      const rawError = uploaded?.error
+      console.error('[paste-upload] uploadFiles result without url', {
+        hasData: Boolean(uploaded?.data),
+        rawError,
+        fileMeta: { type: file.type, size: file.size },
+      })
+      const errMsg = typeof rawError === 'string' ? rawError : (rawError?.message || 'Upload failed')
+      return NextResponse.json({ error: errMsg }, { status: 500 })
     }
 
     return NextResponse.json({ url })

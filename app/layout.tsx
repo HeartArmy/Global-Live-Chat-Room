@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
+import { NextSSRPlugin } from '@uploadthing/react/next-ssr-plugin'
+import { extractRouterConfig } from 'uploadthing/server'
+import { ourFileRouter } from '@/app/api/uploadthing/core'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://live-chat.example.com'
 
@@ -69,6 +72,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sf-pro antialiased bg-white dark:bg-apple-dark">
+        <NextSSRPlugin routerConfig={extractRouterConfig(ourFileRouter)} />
         {children}
         <Analytics />
         <SpeedInsights />
