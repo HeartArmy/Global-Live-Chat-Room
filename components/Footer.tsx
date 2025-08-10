@@ -9,10 +9,10 @@ export default function Footer() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.5 }}
-      className="glass-effect border-t border-gray-200/50 dark:border-gray-700/50 p-4 mt-auto"
+      className="glass-effect border-t border-pastel-gray/50 p-4 mt-auto"
     >
       <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-600 dark:text-gray-400">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-400">
           {/* Left side */}
           <div className="flex items-center gap-2">
             <span>Made with</span>
@@ -31,7 +31,7 @@ export default function Footer() {
               Got suggestions? Send them to{' '}
               <motion.span
                 whileHover={{ scale: 1.05 }}
-                className="font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded cursor-pointer"
+                className="font-mono bg-pastel-ink text-gray-200 px-2 py-1 rounded border border-pastel-gray cursor-pointer"
                 onClick={() => {
                   navigator.clipboard?.writeText('arhampersonal@icloud.com')
                   // Could add a toast notification here
@@ -48,7 +48,7 @@ export default function Footer() {
               href="mailto:arhampersonal@icloud.com"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="p-2 rounded-full hover:bg-pastel-gray/60 transition-colors"
               title="Send feedback"
             >
               <Mail size={16} />
@@ -60,7 +60,7 @@ export default function Footer() {
               rel="noopener noreferrer"
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
-              className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="p-2 rounded-full hover:bg-pastel-gray/60 transition-colors"
               title="View on GitHub"
             >
               <Github size={16} />
@@ -112,7 +112,7 @@ function FunFacts() {
       initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -5 }}
-      className="text-xs text-gray-500 dark:text-gray-400"
+      className="text-xs text-gray-400"
     >
       {currentFact}
     </motion.p>

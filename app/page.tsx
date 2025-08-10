@@ -267,16 +267,16 @@ export default function Home() {
                 scrollToBottom()
                 setAutoScrollLocked(false)
               }}
-              className="absolute left-1/2 -translate-x-1/2 bottom-4 px-3 py-2 rounded-full shadow-md bg-white/90 dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-800 flex items-center gap-2"
+              className="absolute left-1/2 -translate-x-1/2 bottom-4 px-3 py-2 rounded-full shadow-md bg-pastel-ink/90 border border-pastel-gray text-gray-200 hover:bg-pastel-gray/60 flex items-center gap-2"
               aria-label="Scroll to latest"
             >
               <span className="text-sm">Scroll to latest</span>
             </motion.button>
           )}
+
         </div>
 
-        {/* Chat input */}
-        {user ? (
+          {user ? (
           <ChatInput
             onSendMessage={handleSendMessage}
             disabled={isSending}

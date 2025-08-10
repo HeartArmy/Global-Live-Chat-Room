@@ -113,7 +113,7 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
             initial={{ scale: 0.9, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            className="bg-white dark:bg-apple-dark rounded-3xl p-8 max-w-md w-full shadow-2xl"
+            className="glass-effect bg-pastel-ink/90 border border-pastel-gray/50 rounded-3xl p-8 max-w-md w-full shadow-2xl"
           >
             <div className="text-center mb-8">
               <motion.div
@@ -125,11 +125,11 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
                 <span className="text-2xl">🌍</span>
               </motion.div>
               
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-bold text-gray-100 mb-2">
                 Welcome to the World!
               </h2>
               
-              <p className="text-gray-600 dark:text-gray-300 text-sm">
+              <p className="text-gray-300 text-sm">
                 {step === 'username' 
                   ? "Join millions of people chatting from around the globe"
                   : "Quick verification to keep the bots away"
@@ -186,7 +186,7 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
                 className="space-y-4"
               >
                 <div className="text-center">
-                  <p className="text-lg font-medium text-gray-900 dark:text-white mb-4">
+                  <p className="text-lg font-medium text-gray-100 mb-4">
                     {challenge.question}
                   </p>
                   
@@ -241,7 +241,7 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
                   </button>
                 </div>
 
-                <p className="text-xs text-gray-500 text-center">
+                <p className="text-xs text-gray-400 text-center">
                   Don't worry, it's just to keep the spam bots out! 🤖
                 </p>
               </motion.div>
