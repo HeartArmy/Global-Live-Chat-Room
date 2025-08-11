@@ -1,3 +1,4 @@
+import 'server-only'
 import { MongoClient, Db } from 'mongodb'
 
 if (!process.env.MONGODB_URI) {

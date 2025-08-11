@@ -118,6 +118,14 @@ export default function RootLayout({
           }}
         />
         {children}
+        {process.env.NODE_ENV === 'production' && (
+          <script
+            id="console-stripper"
+            dangerouslySetInnerHTML={{
+              __html: `(() => { try { const c = window.console; if (!c) return; ['log','debug','info','trace','table'].forEach(m => { try { c[m] = () => {}; } catch (e) {} }); } catch (e) {} })();`,
+            }}
+          />
+        )}
         <Analytics />
         <SpeedInsights />
       </body>

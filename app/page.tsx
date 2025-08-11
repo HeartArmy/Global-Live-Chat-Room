@@ -10,6 +10,10 @@ import Footer from '@/components/Footer'
 import { ChatMessage as ChatMessageType, User, ReplyInfo } from '@/types/chat'
 
 export default function Home() {
+  // Tunables
+  const CHUNK_SIZE = 40
+  const TOP_THRESHOLD = 96 // px from top to trigger loading older
+  const BOTTOM_THRESHOLD = 24 // px from bottom to keep auto-follow
   const [user, setUser] = useState<User | null>(null)
   const [messages, setMessages] = useState<ChatMessageType[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -34,6 +38,24 @@ export default function Home() {
   // Auto-scroll to bottom
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  // Helper: merge messages de-duplicated by _id (fallback to composite key)
+  const mergeUnique = (
+    existing: ChatMessageType[],
+    additions: ChatMessageType[],
+    direction: 'append' | 'prepend'
+  ): ChatMessageType[] => {
+    const keyOf = (m: ChatMessageType) => m._id || `${m.username}|${String(m.timestamp)}|${m.message}`
+    const seen = new Set(existing.map(keyOf))
+    const filtered: ChatMessageType[] = []
+    for (const m of additions) {
+      const k = keyOf(m)
+      if (seen.has(k)) continue
+      seen.add(k)
+      filtered.push(m)
+    }
+    return direction === 'append' ? [...existing, ...filtered] : [...filtered, ...existing]
   }
 
   useEffect(() => {
@@ -83,14 +105,15 @@ export default function Home() {
   // Load latest chunk initially
   const loadInitial = async () => {
     try {
-      const res = await fetch('/api/messages?limit=50', { cache: 'no-store' })
+      const res = await fetch(`/api/messages?limit=${CHUNK_SIZE}`, { cache: 'no-store' })
       if (res.ok) {
         const data: ChatMessageType[] = await res.json()
+        // Replace with initial chunk
         setMessages(data)
         setOldestTs(data[0]?.timestamp ? String(data[0].timestamp) : null)
         setLatestTs(data[data.length - 1]?.timestamp ? String(data[data.length - 1].timestamp) : null)
         // If fewer than requested, no more older messages
-        setHasMoreOlder(data.length >= 50)
+        setHasMoreOlder(data.length >= CHUNK_SIZE)
       }
     } catch {}
     finally {
@@ -106,14 +129,14 @@ export default function Home() {
     setIsLoadingOlder(true)
     const prevScrollHeight = container.scrollHeight
     try {
-      const url = `/api/messages?beforeTs=${encodeURIComponent(oldestTs)}&limit=50`
+      const url = `/api/messages?beforeTs=${encodeURIComponent(oldestTs)}&limit=${CHUNK_SIZE}`
       const res = await fetch(url, { cache: 'no-store' })
       if (res.ok) {
         const older: ChatMessageType[] = await res.json()
         if (older.length === 0) {
           setHasMoreOlder(false)
         } else {
-          setMessages(prev => [...older, ...prev])
+          setMessages(prev => mergeUnique(prev, older, 'prepend'))
           setOldestTs(older[0]?.timestamp ? String(older[0].timestamp) : oldestTs)
           // Preserve the viewport position after DOM grows
           requestAnimationFrame(() => {
@@ -132,12 +155,12 @@ export default function Home() {
   const pollNewer = async () => {
     if (!latestTs) return
     try {
-      const url = `/api/messages?afterTs=${encodeURIComponent(latestTs)}&limit=50`
+      const url = `/api/messages?afterTs=${encodeURIComponent(latestTs)}&limit=${CHUNK_SIZE}`
       const res = await fetch(url, { cache: 'no-store' })
       if (res.ok) {
         const newer: ChatMessageType[] = await res.json()
         if (newer.length > 0) {
-          setMessages(prev => [...prev, ...newer])
+          setMessages(prev => mergeUnique(prev, newer, 'append'))
           setLatestTs(String(newer[newer.length - 1].timestamp))
         }
       }
@@ -187,7 +210,7 @@ export default function Home() {
 
       if (response.ok) {
         const newMessage = await response.json()
-        setMessages(prev => [...prev, newMessage])
+        setMessages(prev => mergeUnique(prev, [newMessage], 'append'))
         // Update latestTs to the newly sent message timestamp
         if (newMessage?.timestamp) {
           setLatestTs(String(newMessage.timestamp))
@@ -283,18 +306,28 @@ export default function Home() {
           ref={messagesContainerRef}
           onScroll={(e) => {
             const el = e.currentTarget
-            const threshold = 16 // px from bottom for auto-follow
+            const threshold = BOTTOM_THRESHOLD // px from bottom for auto-follow
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
             setIsNearBottom(atBottom)
             setAutoScrollLocked(!atBottom)
             // Do not toggle chip visibility here; it should only appear on new messages
             // If near the top, load older messages
-            const topThreshold = 64
+            const topThreshold = TOP_THRESHOLD
             if (el.scrollTop <= topThreshold) {
               loadOlder()
             }
           }}
         >
+          {/* Top loader for older messages */}
+          {isLoadingOlder && (
+            <div className="flex items-center justify-center py-2">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                className="w-5 h-5 border-2 border-apple-blue border-t-transparent rounded-full opacity-70"
+              />
+            </div>
+          )}
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <motion.div
