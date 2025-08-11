@@ -42,6 +42,22 @@ export default function Home() {
     }
   }, [messages, isNearBottom, autoScrollLocked])
 
+  // Toggle the visibility of the "Scroll to latest" chip based on position and new messages
+  useEffect(() => {
+    if (isNearBottom) {
+      // If user is at/near bottom, hide the chip
+      setShowScrollToLatest(false)
+    }
+  }, [isNearBottom])
+
+  useEffect(() => {
+    // When new messages arrive and the user is NOT near bottom, prompt with the chip
+    if (!isNearBottom && messages.length > 0) {
+      setShowScrollToLatest(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length])
+
   // Fetch messages on component mount
   useEffect(() => {
     fetchMessages()
@@ -213,11 +229,8 @@ export default function Home() {
             setIsNearBottom(atBottom)
             setAutoScrollLocked(!atBottom)
 
-            // Compute how far from top we are: 0 (top) -> 1 (bottom)
-            const maxScroll = Math.max(1, el.scrollHeight - el.clientHeight)
-            const ratio = el.scrollTop / maxScroll
-            // Show only when scrolled to top 30% of the list
-            setShowScrollToLatest(ratio <= 0.3)
+            // Show the chip whenever the user is not at the bottom
+            setShowScrollToLatest(!atBottom)
           }}
         >
           {isLoading ? (
@@ -266,8 +279,9 @@ export default function Home() {
               onClick={() => {
                 scrollToBottom()
                 setAutoScrollLocked(false)
+                setShowScrollToLatest(false)
               }}
-              className="absolute left-1/2 -translate-x-1/2 bottom-4 px-3 py-2 rounded-full shadow-md bg-pastel-ink/90 border border-pastel-gray text-gray-200 hover:bg-pastel-gray/60 flex items-center gap-2"
+              className="absolute right-4 bottom-24 sm:bottom-28 px-3 py-2 rounded-full shadow-lg backdrop-blur-md bg-black/60 dark:bg-white/10 border border-white/20 text-white hover:bg-black/70 transition-colors flex items-center gap-2"
               aria-label="Scroll to latest"
             >
               <span className="text-sm">Scroll to latest</span>
