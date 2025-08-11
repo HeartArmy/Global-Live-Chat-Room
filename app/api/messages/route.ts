@@ -4,17 +4,48 @@ import { getDatabase } from '@/lib/mongodb'
 import { ChatMessage } from '@/types/chat'
 import { getCurrentTimestamp } from '@/utils/timezone'
 
-// GET - Fetch all messages
-export async function GET() {
+// GET - Fetch messages with simple pagination
+export async function GET(request: NextRequest) {
   try {
-    const db = await getDatabase()
-    const messages = await db
-      .collection('messages')
-      .find({})
-      .sort({ timestamp: 1 })
-      .toArray()
+    const { searchParams } = new URL(request.url)
+    const limitParam = parseInt(searchParams.get('limit') || '50', 10)
+    const limit = Math.min(Math.max(isNaN(limitParam) ? 50 : limitParam, 1), 200)
+    const beforeTs = searchParams.get('beforeTs')
+    const afterTs = searchParams.get('afterTs')
 
-    return NextResponse.json(messages)
+    const db = await getDatabase()
+    const collection = db.collection<ChatMessage>('messages')
+
+    // If afterTs is provided, fetch newer messages (for live updates)
+    if (afterTs) {
+      const afterDate = new Date(afterTs)
+      const newer = await collection
+        .find({ timestamp: { $gt: afterDate } })
+        .sort({ timestamp: 1 })
+        .limit(limit)
+        .toArray()
+      return NextResponse.json(newer)
+    }
+
+    // Else, fetch older chunks before a given timestamp
+    if (beforeTs) {
+      const beforeDate = new Date(beforeTs)
+      const olderDesc = await collection
+        .find({ timestamp: { $lt: beforeDate } })
+        .sort({ timestamp: -1 })
+        .limit(limit)
+        .toArray()
+      // Reverse to ascending for UI rendering
+      return NextResponse.json(olderDesc.reverse())
+    }
+
+    // Default: latest chunk
+    const latestDesc = await collection
+      .find({})
+      .sort({ timestamp: -1 })
+      .limit(limit)
+      .toArray()
+    return NextResponse.json(latestDesc.reverse())
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to fetch messages' },

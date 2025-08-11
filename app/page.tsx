@@ -23,6 +23,11 @@ export default function Home() {
   const [showScrollToLatest, setShowScrollToLatest] = useState(false)
   const didInitialScroll = useRef(false)
   const [countryCode, setCountryCode] = useState<string | null>(null)
+  // Pagination state
+  const [oldestTs, setOldestTs] = useState<string | null>(null)
+  const [latestTs, setLatestTs] = useState<string | null>(null)
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false)
+  const [hasMoreOlder, setHasMoreOlder] = useState(true)
   // Stable session id for presence tracking
   const [sessionId] = useState<string>(() => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
 
@@ -60,7 +65,7 @@ export default function Home() {
 
   // Fetch messages on component mount
   useEffect(() => {
-    fetchMessages()
+    loadInitial()
     fetchStats()
     // fetch country (privacy-friendly; no IP stored)
     fetch('/api/geo')
@@ -68,25 +73,75 @@ export default function Home() {
     
     // Poll for new messages every 3 seconds
     const interval = setInterval(() => {
-      fetchMessages()
+      pollNewer()
       fetchStats()
     }, 3000)
 
     return () => clearInterval(interval)
   }, [])
 
-  const fetchMessages = async () => {
+  // Load latest chunk initially
+  const loadInitial = async () => {
     try {
-      const response = await fetch('/api/messages', { cache: 'no-store' })
-      if (response.ok) {
-        const data = await response.json()
+      const res = await fetch('/api/messages?limit=50', { cache: 'no-store' })
+      if (res.ok) {
+        const data: ChatMessageType[] = await res.json()
         setMessages(data)
+        setOldestTs(data[0]?.timestamp ? String(data[0].timestamp) : null)
+        setLatestTs(data[data.length - 1]?.timestamp ? String(data[data.length - 1].timestamp) : null)
+        // If fewer than requested, no more older messages
+        setHasMoreOlder(data.length >= 50)
       }
-    } catch (error) {
-      // swallow errors in UI
-    } finally {
+    } catch {}
+    finally {
       setIsLoading(false)
     }
+  }
+
+  // Fetch older messages before current oldestTs and prepend, preserving scroll position
+  const loadOlder = async () => {
+    if (isLoadingOlder || !hasMoreOlder || !oldestTs) return
+    const container = messagesContainerRef.current
+    if (!container) return
+    setIsLoadingOlder(true)
+    const prevScrollHeight = container.scrollHeight
+    try {
+      const url = `/api/messages?beforeTs=${encodeURIComponent(oldestTs)}&limit=50`
+      const res = await fetch(url, { cache: 'no-store' })
+      if (res.ok) {
+        const older: ChatMessageType[] = await res.json()
+        if (older.length === 0) {
+          setHasMoreOlder(false)
+        } else {
+          setMessages(prev => [...older, ...prev])
+          setOldestTs(older[0]?.timestamp ? String(older[0].timestamp) : oldestTs)
+          // Preserve the viewport position after DOM grows
+          requestAnimationFrame(() => {
+            const newScrollHeight = container.scrollHeight
+            container.scrollTop = newScrollHeight - prevScrollHeight + container.scrollTop
+          })
+        }
+      }
+    } catch {}
+    finally {
+      setIsLoadingOlder(false)
+    }
+  }
+
+  // Poll for new messages newer than latestTs and append
+  const pollNewer = async () => {
+    if (!latestTs) return
+    try {
+      const url = `/api/messages?afterTs=${encodeURIComponent(latestTs)}&limit=50`
+      const res = await fetch(url, { cache: 'no-store' })
+      if (res.ok) {
+        const newer: ChatMessageType[] = await res.json()
+        if (newer.length > 0) {
+          setMessages(prev => [...prev, ...newer])
+          setLatestTs(String(newer[newer.length - 1].timestamp))
+        }
+      }
+    } catch {}
   }
 
   const fetchStats = async () => {
@@ -133,6 +188,10 @@ export default function Home() {
       if (response.ok) {
         const newMessage = await response.json()
         setMessages(prev => [...prev, newMessage])
+        // Update latestTs to the newly sent message timestamp
+        if (newMessage?.timestamp) {
+          setLatestTs(String(newMessage.timestamp))
+        }
         setReplyTo(undefined)
         fetchStats() // Update stats after sending
       } else {
@@ -229,6 +288,11 @@ export default function Home() {
             setIsNearBottom(atBottom)
             setAutoScrollLocked(!atBottom)
             // Do not toggle chip visibility here; it should only appear on new messages
+            // If near the top, load older messages
+            const topThreshold = 64
+            if (el.scrollTop <= topThreshold) {
+              loadOlder()
+            }
           }}
         >
           {isLoading ? (
