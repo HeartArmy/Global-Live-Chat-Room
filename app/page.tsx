@@ -228,9 +228,7 @@ export default function Home() {
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
             setIsNearBottom(atBottom)
             setAutoScrollLocked(!atBottom)
-
-            // Show the chip whenever the user is not at the bottom
-            setShowScrollToLatest(!atBottom)
+            // Do not toggle chip visibility here; it should only appear on new messages
           }}
         >
           {isLoading ? (
@@ -281,7 +279,7 @@ export default function Home() {
                 setAutoScrollLocked(false)
                 setShowScrollToLatest(false)
               }}
-              className="absolute right-4 bottom-24 sm:bottom-28 px-3 py-2 rounded-full shadow-lg backdrop-blur-md bg-black/60 dark:bg-white/10 border border-white/20 text-white hover:bg-black/70 transition-colors flex items-center gap-2"
+              className="absolute left-1/2 -translate-x-1/2 bottom-24 sm:bottom-28 px-3 py-2 rounded-full shadow-lg backdrop-blur-md bg-black/60 dark:bg-white/10 border border-white/20 text-white hover:bg-black/70 transition-colors flex items-center gap-2"
               aria-label="Scroll to latest"
             >
               <span className="text-sm">Scroll to latest</span>
