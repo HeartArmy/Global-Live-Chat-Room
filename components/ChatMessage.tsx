@@ -189,7 +189,13 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
           <div className={`relative chat-bubble ${isCurrentUser ? 'chat-bubble-user' : 'chat-bubble-other'}`}>
             {/* Quick reactions on hover: left of the bubble */}
             {onToggleReaction && message._id && (
-              <div className="hidden md:block pointer-events-none absolute top-1/2 -left-2 -translate-x-full -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div
+                className={`hidden md:block pointer-events-none absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity ${
+                  isCurrentUser
+                    ? '-left-2 -translate-x-full'
+                    : '-right-2 translate-x-full'
+                }`}
+              >
                 <div className="pointer-events-auto inline-flex items-center gap-1 bg-black/10 dark:bg-white/10 rounded-full px-1 py-0.5">
                   {EMOJIS.map((em) => (
                     <button
@@ -339,6 +345,10 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                   dangerouslySetInnerHTML={{ __html: sanitizeHtml((html || ''))
                     // Images responsive
                     .replace(/<img\s/gi, '<img class="rounded-xl max-w-[70vw] sm:max-w-[280px] h-auto inline-block align-middle" ')
+                    // Linkify http(s), www., and bare domains
+                    .replace(/(^|\s)(https?:\/\/[^\s<]+)(?=\s|$)/gi, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>')
+                    .replace(/(^|\s)(www\.[^\s<]+)(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>')
+                    .replace(/(^|\s)((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,})(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>')
                     // Headings sizing
                     .replace(/<h1(\s|>)/gi, '<h1 class="text-2xl font-semibold"$1')
                     .replace(/<h2(\s|>)/gi, '<h2 class="text-base font-medium"$1')
@@ -436,7 +446,12 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                   {/* Quick reactions moved to bubble-left; keep + for more here */}
 
                   {showEmojiPicker && (
-                    <div className="absolute z-50 md:bottom-6 md:right-0 md:left-auto md:translate-x-0 left-1/2 -translate-x-1/2 bottom-12 p-2 w-[90vw] md:w-64 bg-pastel-ink rounded-xl border border-pastel-gray drop-shadow-xl overflow-hidden">
+                    <div
+                      className={`absolute z-50 p-2 w-[90vw] md:w-64 bg-pastel-ink rounded-xl border border-pastel-gray drop-shadow-xl overflow-hidden
+                        left-1/2 -translate-x-1/2 bottom-12
+                        md:bottom-6 md:translate-x-0 ${isCurrentUser ? 'md:right-0 md:left-auto' : 'md:left-0 md:right-auto'}
+                      `}
+                    >
                       <div className="grid grid-cols-7 md:grid-cols-8 gap-1">
                         {displayedEmojis.map((em) => {
                           const count = (message.reactions?.[em] || []).length
