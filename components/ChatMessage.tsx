@@ -30,6 +30,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
   const isCurrentUser = message.username === currentUsername
   const text = message.message
   const html = message.html
+  const messageTextSize = isCurrentUser ? 'text-sm' : 'text-xs'
   const [isEditing, setIsEditing] = useState(false)
   const draft = text
   const [editHtml, setEditHtml] = useState<string | null>(null)
@@ -57,9 +58,12 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
     const linkify = (s: string) => s
-      .replace(/(^|\s)(https?:\/\/[^\s]+)(?=\s|$)/gi, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>')
-      .replace(/(^|\s)(www\.[^\s]+)(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>')
-      .replace(/(^|\s)((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,})(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>')
+      // http(s) links, keep trailing punctuation out of the link
+      .replace(/(^|\s)(https?:\/\/[^^\s<>()]+?)([).,!?:;]?)(?=\s|$)/gi, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>$3')
+      // www. links
+      .replace(/(^|\s)(www\.[^\s<>()]+?)([).,!?:;]?)(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>$3')
+      // bare domains like google.com and optional path
+      .replace(/(^|\s)(((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,})(?:\/[^^\s<>()]+?)?)([).,!?:;]?)(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>$4')
     const md = (s: string) => {
       // images ![alt](url)
       s = s.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, (_m, alt, url) => `<img src="${url}" alt="${alt}" class="rounded-xl max-w-[280px] h-auto inline-block align-middle" />`)
@@ -341,22 +345,22 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
             ) : (
               html && html.trim().length > 0 ? (
                 <div
-                  className="leading-relaxed break-words overflow-x-hidden"
+                  className={`leading-relaxed break-words overflow-x-hidden ${messageTextSize}`}
                   dangerouslySetInnerHTML={{ __html: sanitizeHtml((html || ''))
                     // Images responsive
                     .replace(/<img\s/gi, '<img class="rounded-xl max-w-[70vw] sm:max-w-[280px] h-auto inline-block align-middle" ')
-                    // Linkify http(s), www., and bare domains
-                    .replace(/(^|\s)(https?:\/\/[^\s<]+)(?=\s|$)/gi, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>')
-                    .replace(/(^|\s)(www\.[^\s<]+)(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>')
-                    .replace(/(^|\s)((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,})(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>')
+                    // Linkify http(s), www., and bare domains (preserve trailing punctuation)
+                    .replace(/(^|\s)(https?:\/\/[^^\s<>()]+?)([).,!?:;]?)(?=\s|$)/gi, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>$3')
+                    .replace(/(^|\s)(www\.[^\s<>()]+?)([).,!?:;]?)(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>$3')
+                    .replace(/(^|\s)(((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,})(?:\/[^^\s<>()]+?)?)([).,!?:;]?)(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>$4')
                     // Headings sizing
                     .replace(/<h1(\s|>)/gi, '<h1 class="text-2xl font-semibold"$1')
                     .replace(/<h2(\s|>)/gi, '<h2 class="text-base font-medium"$1')
-                    .replace(/<h3(\s|>)/gi, '<h3 class="text-sm font-medium opacity-90"$1')
+                    .replace(/<h3(\s|>)/gi, '<h3 class="text-xs font-medium opacity-90"$1')
                   }}
                 />
               ) : (
-                <p className="text-sm leading-relaxed break-words overflow-x-hidden" dangerouslySetInnerHTML={renderHtml} />
+                <p className={`${messageTextSize} leading-relaxed break-words overflow-x-hidden`} dangerouslySetInnerHTML={renderHtml} />
               )
             )}
             {/* Metadata row inside bubble */}

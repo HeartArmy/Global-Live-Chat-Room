@@ -12,6 +12,12 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden; /* Prevent horizontal scroll globally */
+    @apply text-sm; /* Smaller default font size */
+  }
+
+  /* Headings */
+  h3 {
+    @apply text-xs; /* Make h3 even smaller */
   }
 }
 

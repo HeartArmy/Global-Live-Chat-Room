@@ -423,7 +423,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             value={html}
             onChange={handleQuillChange}
             modules={modules}
-            className="rounded-2xl min-h-12 max-h-32 overflow-y-auto px-4 py-3 text-sm bg-transparent w-full"
+            className="rounded-2xl min-h-12 max-h-32 overflow-y-auto px-4 py-3 text-xs bg-transparent w-full"
           />
         </div>
         {/* Removed file chooser: paste-only flow */}
