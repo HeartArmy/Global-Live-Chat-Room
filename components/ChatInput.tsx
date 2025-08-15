@@ -321,7 +321,22 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                 )}
                 <span className="truncate">{replyTo.preview}</span>
               </div>
-        {/* Insert Link Popover */}
+            </div>
+            {onCancelReply && (
+              <button
+                type="button"
+                onClick={onCancelReply}
+                className="shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-blue-700 hover:text-blue-900 dark:text-blue-200 dark:hover:text-white hover:bg-blue-100 dark:hover:bg-blue-800/50"
+                aria-label="Cancel reply"
+                title="Cancel reply"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        )}
+        <div className="relative">
+        {/* Insert Link Popover (positioned relative to this container) */}
         {showLinkPopover && (
           <div className="absolute z-50 left-0 right-0 -top-2 translate-y-[-100%] flex justify-start">
             <div className="w-full max-w-sm rounded-xl border border-pastel-gray bg-pastel-ink shadow-xl p-3">
@@ -368,21 +383,6 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             </div>
           </div>
         )}
-            </div>
-            {onCancelReply && (
-              <button
-                type="button"
-                onClick={onCancelReply}
-                className="shrink-0 h-6 w-6 rounded-full flex items-center justify-center text-blue-700 hover:text-blue-900 dark:text-blue-200 dark:hover:text-white hover:bg-blue-100 dark:hover:bg-blue-800/50"
-                aria-label="Cancel reply"
-                title="Cancel reply"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        )}
-        <div className="relative">
         {/* Compact formatting toolbar above the input */}
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1">
