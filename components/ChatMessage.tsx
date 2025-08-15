@@ -1,11 +1,15 @@
 'use client'
 
 import { useMemo, useRef, useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
+import type { ReactQuillProps, UnprivilegedEditor } from 'react-quill'
 import { motion } from 'framer-motion'
 import { ChatMessage as ChatMessageType, ReplyInfo, ReactionMap } from '@/types/chat'
 import { CornerUpRight, Pencil, Check, X } from 'lucide-react'
 import { formatTimestamp, formatAbsolute } from '@/utils/timezone'
 import { countryCodeToFlag } from '@/utils/geo'
+
+const ReactQuill = dynamic<ReactQuillProps>(() => import('react-quill'), { ssr: false })
 
 interface ChatMessageProps {
   message: ChatMessageType
@@ -22,7 +26,9 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
   const text = message.message
   const html = message.html
   const [isEditing, setIsEditing] = useState(false)
-  const [draft, setDraft] = useState(text)
+  const draft = text
+  const [editHtml, setEditHtml] = useState<string | null>(null)
+  const [editPlain, setEditPlain] = useState<string>('')
   const savingRef = useRef(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [topEmojis, setTopEmojis] = useState<string[] | null>(null)
@@ -81,6 +87,20 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
     safe = safe.replace(/\n/g, '<br />')
     return { __html: safe }
   }, [text])
+
+  // Lightweight sanitizer to mitigate XSS for Quill HTML
+  const sanitizeHtml = (unsafe: string) => {
+    let s = unsafe
+    // remove <script> tags
+    s = s.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    // remove event handler attributes like onload=, onclick=
+    s = s.replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    // disallow javascript: URLs in href/src (handle quoted and unquoted forms without backreferences)
+    s = s.replace(/\s(href|src)\s*=\s*"\s*javascript:[^"]*"/gi, '')
+    s = s.replace(/\s(href|src)\s*=\s*'\s*javascript:[^']*'/gi, '')
+    s = s.replace(/\s(href|src)\s*=\s*javascript:[^\s>]+/gi, '')
+    return s
+  }
 
   const EMOJIS = useMemo(() => ['❤️','😂','😊','👍','🔥','🎉'], [])
   const commonEmojis = useMemo(() => [
@@ -159,6 +179,8 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                 {countryCodeToFlag(message.countryCode || (isCurrentUser ? currentUserCountry : undefined))}
               </span>
             </span>
+          </div>
+          <div className={`relative chat-bubble ${isCurrentUser ? 'chat-bubble-user' : 'chat-bubble-other'}`}>
             {/* Quick reactions on hover: left of the bubble */}
             {onToggleReaction && message._id && (
               <div className="pointer-events-none absolute top-1/2 -left-2 -translate-x-full -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -182,8 +204,6 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                 </div>
               </div>
             )}
-          </div>
-          <div className={`relative chat-bubble ${isCurrentUser ? 'chat-bubble-user' : 'chat-bubble-other'}`}>
             {message.replyTo && (
               <div className={`mb-2 text-xs rounded-lg p-2 ${isCurrentUser ? 'bg-white/20' : 'bg-black/5 dark:bg-white/10'} border border-black/5 dark:border-white/10`}>
                 <button
@@ -208,11 +228,15 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
             )}
             {isEditing ? (
               <div className="flex flex-col gap-2">
-                <textarea
-                  className="w-full rounded-md bg-transparent border border-white/20 p-2 text-sm"
-                  value={draft}
-                  rows={3}
-                  onChange={(e) => setDraft(e.target.value)}
+                <ReactQuill
+                  theme="bubble"
+                  value={editHtml ?? html ?? draft}
+                  onChange={(value: string, _delta: unknown, _source: unknown, editor: UnprivilegedEditor) => {
+                    setEditHtml(value)
+                    setEditPlain(editor.getText())
+                  }}
+                  modules={{ toolbar: false }}
+                  className="rounded-md bg-transparent border border-white/20 p-2 text-sm"
                 />
                 <div className="flex gap-2 text-xs">
                   <button
@@ -221,10 +245,15 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                       if (savingRef.current) return
                       savingRef.current = true
                       try {
+                        const payload: { id?: string; username?: string; message: string; html?: string } = { id: message._id, username: currentUsername, message: '', html: undefined }
+                        const plain = (editPlain || '').trim()
+                        const contentHtml = editHtml ?? html ?? ''
+                        payload.message = plain || ' '
+                        payload.html = contentHtml
                         const res = await fetch('/api/messages', {
                           method: 'PATCH',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ id: message._id, username: currentUsername, message: draft }),
+                          body: JSON.stringify(payload),
                         })
                         if (res.ok) {
                           const updated = await res.json()
@@ -239,7 +268,11 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                   >
                     <Check size={14} /> Save
                   </button>
-                  <button className="px-2 py-1 rounded bg-gray-600 text-white inline-flex items-center gap-1" onClick={() => { setIsEditing(false); setDraft(text) }} title="Cancel editing">
+                  <button
+                    className="px-2 py-1 rounded bg-gray-600 text-white inline-flex items-center gap-1"
+                    onClick={() => { setIsEditing(false); setEditHtml(null); setEditPlain('') }}
+                    title="Cancel editing"
+                  >
                     <X size={14} /> Cancel
                   </button>
                 </div>
@@ -256,7 +289,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
               html && html.trim().length > 0 ? (
                 <div
                   className="leading-relaxed break-words overflow-x-hidden"
-                  dangerouslySetInnerHTML={{ __html: (html || '')
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml((html || ''))
                     // Images responsive
                     .replace(/<img\s/gi, '<img class="rounded-xl max-w-[70vw] sm:max-w-[280px] h-auto inline-block align-middle" ')
                     // Headings sizing

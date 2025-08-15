@@ -1,16 +1,21 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import dynamic from 'next/dynamic'
+import type ReactQuillType from 'react-quill'
+import type { ReactQuillProps, UnprivilegedEditor } from 'react-quill'
+import type Quill from 'quill'
+import type React from 'react'
 import { motion } from 'framer-motion'
 import { Send, Smile, Image as ImageIcon, X, Bold, Italic, Underline, Type } from 'lucide-react'
 
 import { ReplyInfo } from '@/types/chat'
-import { EditorContent, useEditor, type Editor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import UnderlineExt from '@tiptap/extension-underline'
-import Heading from '@tiptap/extension-heading'
-import Image from '@tiptap/extension-image'
-import type { EditorView } from '@tiptap/pm/view'
+
+// Quill bubble theme styles are imported globally in app/globals.css
+const ReactQuill = dynamic(
+  () => import('react-quill'),
+  { ssr: false }
+) as unknown as React.ForwardRefExoticComponent<ReactQuillProps & React.RefAttributes<ReactQuillType>>
 
 interface ChatInputProps {
   onSendMessage: (message: string, reply?: ReplyInfo, html?: string) => void
@@ -33,12 +38,13 @@ const funnyPlaceholders = [
 ]
 
 export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelReply }: ChatInputProps) {
-  const [message, setMessage] = useState('')
+  const [plainText, setPlainText] = useState('')
+  const [html, setHtml] = useState('')
   const [currentPlaceholder, setCurrentPlaceholder] = useState(funnyPlaceholders[0])
   const [showPicker, setShowPicker] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [showPasteHint, setShowPasteHint] = useState(false)
-  const editorRef = useRef<ReturnType<typeof useEditor> | null>(null)
+  const quillRef = useRef<ReactQuillType | null>(null)
   const pickerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -62,79 +68,28 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     return true
   }
 
-  // TipTap editor setup
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: false,
-      }),
-      UnderlineExt,
-      Heading.configure({ levels: [1, 2, 3] }),
-      Image.configure({ inline: true, allowBase64: false })
-    ],
-    editorProps: {
-      attributes: {
-        class: 'chat-textarea input-field pr-3 rounded-2xl transition-all duration-200 resize-none min-h-12 max-h-32 overflow-y-auto',
-      },
-      handlePaste: (view: EditorView, event: ClipboardEvent) => {
-        if (disabled) return false
-        const cb = event.clipboardData
-        if (!cb) return false
-        const files: File[] = []
-        for (let i = 0; i < cb.items.length; i++) {
-          const it = cb.items[i]
-          if (it.kind === 'file') {
-            const blob = it.getAsFile()
-            if (blob) files.push(new File([blob], 'pasted-image', { type: blob.type }))
+  // Quill modules and formats
+  const modules: ReactQuillProps['modules'] = {
+    toolbar: false,
+    keyboard: {
+      bindings: {
+        handleEnter: {
+          key: 'Enter',
+          shiftKey: false,
+          handler: () => {
+            const form = document.getElementById('chat-input-form') as HTMLFormElement | null
+            form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+            return false
           }
         }
-        if (files.length) {
-          event.preventDefault()
-          void handleFilesUpload(files)
-          return true
-        }
-        return false
-      },
-      handleKeyDown: (_view: EditorView, event: KeyboardEvent) => {
-        // Submit on Enter, newline on Shift+Enter
-        if (event.key === 'Enter' && !event.shiftKey) {
-          event.preventDefault()
-          // Programmatically submit
-          const form = document.getElementById('chat-input-form') as HTMLFormElement | null
-          form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
-          return true
-        }
-        const isMac = navigator.userAgent.includes('Mac')
-        const mod = isMac ? event.metaKey : event.ctrlKey
-        if (!mod) return false
-        const key = event.key.toLowerCase()
-        if (key === 'b') { event.preventDefault(); editor?.chain().focus().toggleBold().run(); return true }
-        if (key === 'i') { event.preventDefault(); editor?.chain().focus().toggleItalic().run(); return true }
-        if (key === 'u') { event.preventDefault(); editor?.chain().focus().toggleUnderline().run(); return true }
-        if (key === '1') { event.preventDefault(); editor?.chain().focus().toggleHeading({ level: 1 }).run(); return true }
-        if (key === '2') { event.preventDefault(); editor?.chain().focus().toggleHeading({ level: 2 }).run(); return true }
-        if (key === '3') { event.preventDefault(); editor?.chain().focus().toggleHeading({ level: 3 }).run(); return true }
-        return false
-      },
-    },
-    onUpdate: ({ editor }: { editor: Editor }) => {
-      // Keep a plain-text shadow for the optimistic temp message
-      setMessage(editor.getText())
-    },
-  })
-  editorRef.current = editor
-
-  const wrapSelection = (token: string) => {
-    if (!editor) return
-    // Map tokens to TipTap marks
-    if (token === '**') editor.chain().focus().toggleBold().run()
-    else if (token === '*') editor.chain().focus().toggleItalic().run()
-    else if (token === '__') editor.chain().focus().toggleUnderline().run()
+      }
+    }
   }
 
-  const prefixLine = (level: 1 | 2 | 3) => {
-    if (!editor) return
-    editor.chain().focus().toggleHeading({ level }).run()
+  // Editor change handler
+  const handleQuillChange = (value: string, _delta: unknown, _source: unknown, editor: UnprivilegedEditor) => {
+    setHtml(value)
+    setPlainText(editor.getText())
   }
 
   const handleFilesUpload = async (files: File[]) => {
@@ -156,8 +111,14 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         }
         const data = await res.json()
         if (data?.url) {
-          // Insert TipTap image node inline at cursor
-          editor?.chain().focus().setImage({ src: data.url, alt: 'image' }).run()
+          // Insert image embed at current cursor
+          const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+          if (q) {
+            const range = q.getSelection(true)
+            const index = range ? range.index : q.getLength()
+            q.insertEmbed(index, 'image', data.url, 'user')
+            q.setSelection(index + 1, 0, 'user')
+          }
         } else {
           alert('Upload succeeded but no URL was returned. Please try again.')
         }
@@ -172,13 +133,16 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const html = editor?.getHTML() || ''
-    const text = editor?.getText().trim() || ''
-    const hasContent = !!editor && !editor.isEmpty
-    if (!disabled && (text.length > 0 || hasContent)) {
-      onSendMessage(text || ' ', replyTo, html)
-      setMessage('')
-      editor?.commands.clearContent(true)
+    const text = (plainText || '').trim()
+    const contentHtml = html || ''
+    const hasContent = text.length > 0 || /<img\b/i.test(contentHtml)
+    if (!disabled && hasContent) {
+      onSendMessage(text || ' ', replyTo, contentHtml)
+      setPlainText('')
+      setHtml('')
+      // Clear editor
+      const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+      q?.setText('')
       if (onCancelReply) onCancelReply()
       
       // Change placeholder after sending a message
@@ -188,27 +152,21 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     }
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit(e as unknown as React.FormEvent)
-      return
+  // Keyboard shortcuts for formatting
+  const applyFormat = (fmt: 'bold' | 'italic' | 'underline' | 'header1' | 'header2' | 'header3') => {
+    const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+    if (!q) return
+    if (fmt === 'bold' || fmt === 'italic' || fmt === 'underline') {
+      q.format(fmt, !q.getFormat()[fmt])
+    } else {
+      const level = fmt === 'header1' ? 1 : fmt === 'header2' ? 2 : 3
+      const current = q.getFormat().header
+      q.format('header', current === level ? false : level)
     }
-    const isMac = navigator.platform.toUpperCase().includes('MAC')
-    const mod = isMac ? (e as React.KeyboardEvent).metaKey : (e as React.KeyboardEvent).ctrlKey
-    if (mod) {
-      if (e.key.toLowerCase() === 'b') { e.preventDefault(); wrapSelection('**') }
-      else if (e.key.toLowerCase() === 'i') { e.preventDefault(); wrapSelection('*') }
-      else if (e.key.toLowerCase() === 'u') { e.preventDefault(); wrapSelection('__') }
-      else if (e.key === '1') { e.preventDefault(); prefixLine(1) }
-      else if (e.key === '2') { e.preventDefault(); prefixLine(2) }
-      else if (e.key === '3') { e.preventDefault(); prefixLine(3) }
-    }
+    q.focus()
   }
 
-  const insertAtCursor = (text: string) => {
-    editor?.chain().focus().insertContent(text).run()
-  }
+  // removed TipTap helper
 
   // Close picker on outside click or Escape
   useEffect(() => {
@@ -248,7 +206,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     <motion.form
       id="chat-input-form"
       onSubmit={handleSubmit}
-      className="flex items-center gap-2 p-4 glass-effect border-t border-pastel-gray/50 flex-nowrap"
+      className="flex items-center gap-2 p-4 glass-effect border-t border-pastel-gray/50"
       initial={{ y: 50, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay: 0.3 }}
@@ -283,33 +241,33 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         {/* Compact formatting toolbar above the input */}
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1">
-            {editor && (
+            {(
               <button
                 type="button"
                 className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-                onClick={() => editor?.chain().focus().toggleBold().run()}
+                onClick={() => applyFormat('bold')}
                 title="Bold (⌘B / Ctrl+B)"
                 aria-label="Bold"
               >
                 <Bold size={16} />
               </button>
             )}
-            {editor && (
+            {(
               <button
                 type="button"
                 className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-                onClick={() => editor?.chain().focus().toggleItalic().run()}
+                onClick={() => applyFormat('italic')}
                 title="Italic (⌘I / Ctrl+I)"
                 aria-label="Italic"
               >
                 <Italic size={16} />
               </button>
             )}
-            {editor && (
+            {(
               <button
                 type="button"
                 className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-                onClick={() => editor?.chain().focus().toggleUnderline().run()}
+                onClick={() => applyFormat('underline')}
                 title="Underline (⌘U / Ctrl+U)"
                 aria-label="Underline"
               >
@@ -317,11 +275,11 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
               </button>
             )}
             <div className="h-5 w-px bg-white/10 mx-1" />
-            {editor && (
+            {(
               <button
                 type="button"
                 className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-                onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+                onClick={() => applyFormat('header1')}
                 title="Heading 1 (⌘1 / Ctrl+1)"
                 aria-label="H1"
               >
@@ -329,11 +287,11 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                 <span className="ml-1 text-xs">H1</span>
               </button>
             )}
-            {editor && (
+            {(
               <button
                 type="button"
                 className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-                onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                onClick={() => applyFormat('header2')}
                 title="Heading 2 (⌘2 / Ctrl+2)"
                 aria-label="H2"
               >
@@ -341,11 +299,11 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                 <span className="ml-1 text-xs">H2</span>
               </button>
             )}
-            {editor && (
+            {(
               <button
                 type="button"
                 className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-                onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
+                onClick={() => applyFormat('header3')}
                 title="Heading 3 (⌘3 / Ctrl+3)"
                 aria-label="H3"
               >
@@ -383,19 +341,37 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             </button>
           </div>
         </div>
-
-        <div onKeyDown={handleKeyDown}>
-          <EditorContent editor={editor!} />
+        {/* Quill editor */}
+        <div
+          onPaste={(event) => {
+            if (disabled) return
+            const cb = event.clipboardData
+            if (!cb) return
+            const files: File[] = []
+            for (let i = 0; i < cb.items.length; i++) {
+              const it = cb.items[i]
+              if (it.kind === 'file') {
+                const blob = it.getAsFile()
+                if (blob) files.push(new File([blob], 'pasted-image', { type: blob.type }))
+              }
+            }
+            if (files.length) {
+              event.preventDefault()
+              void handleFilesUpload(files)
+            }
+          }}
+          className="quill-wrapper"
+        >
+          <ReactQuill
+            ref={quillRef}
+            theme="bubble"
+            placeholder={currentPlaceholder}
+            value={html}
+            onChange={handleQuillChange}
+            modules={modules}
+            className="rounded-2xl min-h-12 max-h-32 overflow-y-auto px-4 py-3 text-sm bg-transparent w-full"
+          />
         </div>
-        {/* Locked placeholder overlay */}
-        {((!message || message.length === 0) && editor?.isEmpty) && (
-          <div
-            className="pointer-events-none select-none absolute left-4 right-4 top-3.5 text-gray-400 dark:text-gray-400/80 truncate"
-            aria-hidden
-          >
-            {currentPlaceholder}
-          </div>
-        )}
         {/* Removed file chooser: paste-only flow */}
         {/* Hidden file input for manual uploads */}
         <input
@@ -432,9 +408,9 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         {showPicker && (
           <div
             ref={pickerRef}
-            className="absolute right-0 bottom-14 z-50 drop-shadow-xl"
+            className="absolute right-0 bottom-14 z-50 drop-shadow-xl max-w-[90vw]"
           >
-            <div className="p-2 w-64 bg-pastel-ink rounded-xl border border-pastel-gray">
+            <div className="p-2 w-64 max-w-full bg-pastel-ink rounded-xl border border-pastel-gray">
             <div className="grid grid-cols-8 gap-1">
               {commonEmojis.map((em) => (
                 <button
@@ -442,8 +418,15 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                   type="button"
                   className="h-8 w-8 flex items-center justify-center rounded hover:bg-pastel-gray/60 text-lg"
                   onClick={() => {
-                    insertAtCursor(em)
-                    setShowPicker(false)
+                    const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+                    if (q) {
+                      const range = q.getSelection(true)
+                      const index = range ? range.index : q.getLength()
+                      q.insertText(index, em, 'user')
+                      q.setSelection(index + em.length, 0, 'user')
+                      q.focus()
+                    }
+                    // keep picker open; do not move
                   }}
                   aria-label={`Insert ${em}`}
                 >
@@ -459,7 +442,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       
       <motion.button
         type="submit"
-        disabled={(editor?.isEmpty ?? true) || disabled || isUploading}
+        disabled={(plainText.trim().length === 0 && !(/<img\b/i.test(html))) || disabled || isUploading}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         className="bg-pastel-blue hover:bg-blue-500 text-gray-100 h-12 w-12 rounded-2xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-pastel-blue/60 focus:ring-offset-2 focus:ring-offset-pastel-ink"
