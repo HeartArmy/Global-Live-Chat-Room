@@ -22,6 +22,7 @@ export default function Home() {
   const [replyTo, setReplyTo] = useState<ReplyInfo | undefined>(undefined)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const topSentinelRef = useRef<HTMLDivElement>(null)
   const [isNearBottom, setIsNearBottom] = useState(true)
   const [autoScrollLocked, setAutoScrollLocked] = useState(false)
   const [showScrollToLatest, setShowScrollToLatest] = useState(false)
@@ -31,6 +32,7 @@ export default function Home() {
   const lastOlderLoadAtRef = useRef(0)
   // Pagination state
   const [oldestTs, setOldestTs] = useState<string | null>(null)
+  const [oldestId, setOldestId] = useState<string | null>(null)
   const [latestTs, setLatestTs] = useState<string | null>(null)
   const [isLoadingOlder, setIsLoadingOlder] = useState(false)
   const [hasMoreOlder, setHasMoreOlder] = useState(true)
@@ -94,6 +96,7 @@ export default function Home() {
         // Replace with initial chunk
         setMessages(data)
         setOldestTs(data[0]?.timestamp ? String(data[0].timestamp) : null)
+        setOldestId(data[0]?._id ? String(data[0]._id) : null)
         setLatestTs(data[data.length - 1]?.timestamp ? String(data[data.length - 1].timestamp) : null)
         // If fewer than requested, no more older messages
         setHasMoreOlder(data.length >= CHUNK_SIZE)
@@ -168,6 +171,29 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [fetchStats, pollNewer])
 
+  // Observe top sentinel to auto-load older consistently
+  useEffect(() => {
+    const root = messagesContainerRef.current
+    const target = topSentinelRef.current
+    if (!root || !target) return
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            const now = Date.now()
+            if (now - lastOlderLoadAtRef.current > 600 && !isLoadingOlder && hasMoreOlder && oldestTs) {
+              lastOlderLoadAtRef.current = now
+              loadOlder()
+            }
+          }
+        }
+      },
+      { root, threshold: 0.1 }
+    )
+    obs.observe(target)
+    return () => obs.disconnect()
+  }, [isLoadingOlder, hasMoreOlder, oldestTs])
+
   // SSE subscription for instant updates
   useEffect(() => {
     const es = new EventSource('/api/events')
@@ -214,8 +240,9 @@ export default function Home() {
     if (!container) return
     setIsLoadingOlder(true)
     const prevScrollHeight = container.scrollHeight
+    const prevScrollTop = container.scrollTop
     try {
-      const url = `/api/messages?beforeTs=${encodeURIComponent(oldestTs)}&limit=${CHUNK_SIZE}`
+      const url = `/api/messages?beforeTs=${encodeURIComponent(oldestTs)}${oldestId ? `&beforeId=${encodeURIComponent(oldestId)}` : ''}&limit=${CHUNK_SIZE}`
       const res = await fetch(url, { cache: 'no-store' })
       if (res.ok) {
         let older: ChatMessageType[] = await res.json()
@@ -226,13 +253,19 @@ export default function Home() {
         } else {
           setMessages(prev => mergeUnique(prev, older, 'prepend'))
           setOldestTs(older[0]?.timestamp ? String(older[0].timestamp) : oldestTs)
+          setOldestId(older[0]?._id ? String(older[0]._id) : oldestId)
           // Preserve the viewport position after DOM grows (ensure after React commit)
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               const newScrollHeight = container.scrollHeight
-              container.scrollTop = newScrollHeight - prevScrollHeight + container.scrollTop
+              const delta = newScrollHeight - prevScrollHeight
+              container.scrollTop = prevScrollTop + delta
             })
           })
+          // If the server returned fewer than a full page, we've reached the beginning
+          if (older.length < CHUNK_SIZE) {
+            setHasMoreOlder(false)
+          }
         }
       }
     } catch {}
@@ -411,6 +444,8 @@ export default function Home() {
             }
           }}
         >
+          {/* Top sentinel for consistent older-loading */}
+          <div ref={topSentinelRef} className="h-px" />
           {/* Beginning marker */}
           {!hasMoreOlder && (
             <div className="py-1 flex justify-center">

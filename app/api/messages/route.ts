@@ -20,36 +20,48 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const collection = db.collection('messages') as any
 
+    // Helper to serialize Mongo docs -> plain JSON
+    const serialize = (docs: any[]) =>
+      docs.map((d) => ({
+        ...d,
+        _id: d?._id?.toString?.() || d?._id,
+      }))
+
     // If afterTs is provided, fetch newer/updated messages (for live updates)
     if (afterTs) {
       const afterDate = new Date(afterTs)
       const newer = await collection
         .find({ $or: [ { timestamp: { $gt: afterDate } }, { updatedAt: { $gt: afterDate } } ] })
-        .sort({ timestamp: 1 })
+        .sort({ timestamp: 1, _id: 1 })
         .limit(limit)
         .toArray()
-      return NextResponse.json(newer)
+      return NextResponse.json(serialize(newer))
     }
 
     // Else, fetch older chunks before a given timestamp
     if (beforeTs) {
       const beforeDate = new Date(beforeTs)
+      const beforeIdRaw = searchParams.get('beforeId')
+      const beforeId = beforeIdRaw && ObjectId.isValid(beforeIdRaw) ? new ObjectId(beforeIdRaw) : null
+      const query = beforeId
+        ? { $or: [ { timestamp: { $lt: beforeDate } }, { timestamp: beforeDate, _id: { $lt: beforeId } } ] }
+        : { timestamp: { $lt: beforeDate } }
       const olderDesc = await collection
-        .find({ timestamp: { $lt: beforeDate } })
-        .sort({ timestamp: -1 })
+        .find(query)
+        .sort({ timestamp: -1, _id: -1 })
         .limit(limit)
         .toArray()
       // Reverse to ascending for UI rendering
-      return NextResponse.json(olderDesc.reverse())
+      return NextResponse.json(serialize(olderDesc.reverse()))
     }
 
     // Default: latest chunk
     const latestDesc = await collection
       .find({})
-      .sort({ timestamp: -1 })
+      .sort({ timestamp: -1, _id: -1 })
       .limit(limit)
       .toArray()
-    return NextResponse.json(latestDesc.reverse())
+    return NextResponse.json(serialize(latestDesc.reverse()))
   } catch {
     return NextResponse.json(
       { error: 'Failed to fetch messages' },
