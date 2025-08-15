@@ -128,39 +128,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const handleQuillChange = (value: string, _delta: unknown, _source: unknown, editor: UnprivilegedEditor) => {
     setHtml(value)
     setPlainText(editor.getText())
-
-    // Auto-link URLs/domains as you type
-    const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
-    if (!q || autolinkRef.current) return
-    autolinkRef.current = true
-    try {
-      const sel = q.getSelection()
-      const full = q.getText(0, q.getLength())
-
-      // Remove existing link attribute across the doc (preserves other formats)
-      q.formatText(0, full.length, 'link', false, 'api')
-
-      // Match http(s), www.(with TLD), or bare domains (excluding www.), optional path. Exclude trailing punctuation.
-      const urlRegex = /(^|[\s(])((?:https?:\/\/)[^\s<>()]+|(?:www\.)[^\s<>()]+\.[a-z]{2,}(?:\/[^^\s<>()]+)?|(?:(?!www\.)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^^\s<>()]+)?)/gi
-      let m: RegExpExecArray | null
-      while ((m = urlRegex.exec(full)) !== null) {
-        const leading = m[1] || ''
-        const urlText = m[2]
-        // Trim trailing punctuation such as . , ! ? ; : )
-        const trimmed = urlText.replace(/[),.!?;:]+$/, '')
-        if (!trimmed) continue
-        const start = m.index + (leading ? leading.length : 0)
-        const href = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`
-        // Apply link format only over the trimmed span
-        q.formatText(start, trimmed.length, 'link', href, 'api')
-      }
-
-      if (sel) {
-        q.setSelection(sel, 'api')
-      }
-    } finally {
-      autolinkRef.current = false
-    }
+    // No automatic hyperlinking; '/url <value>' command is handled on submit
   }
 
   const handleFilesUpload = async (files: File[]) => {
@@ -205,7 +173,17 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const text = (plainText || '').trim()
-    const contentHtml = html || ''
+    let contentHtml = html || ''
+    // Command mode: '/url <value>' converts to a clickable link only when sending
+    if (text.toLowerCase().startsWith('/url')) {
+      const arg = text.slice(4).trim()
+      if (arg.length > 0) {
+        const trimmed = arg.replace(/[),.!?;:]+$/, '')
+        const href = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`
+        const safeText = trimmed
+        contentHtml = `<a href="${href}" target="_blank" rel="noopener noreferrer">${safeText}</a>`
+      }
+    }
     const hasContent = text.length > 0 || /<img\b/i.test(contentHtml)
     if (!disabled && hasContent) {
       onSendMessage(text || ' ', replyTo, contentHtml)
@@ -448,7 +426,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
               void handleFilesUpload(files)
             }
           }}
-          className="quill-wrapper"
+          className="quill-wrapper relative"
         >
           <ReactQuill
             ref={quillRef}
@@ -459,6 +437,12 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             modules={modules}
             className="rounded-2xl min-h-12 max-h-32 overflow-y-auto px-4 py-3 text-xs bg-transparent w-full"
           />
+          {/* Quick hint for URL command */}
+          {plainText.trimStart().toLowerCase().startsWith('/url') ? (
+            <div className="absolute right-2 -bottom-5 text-[10px] text-gray-300 opacity-80 select-none">
+              Type: /url your-link-here (no auto-linking; only this command makes a clickable link)
+            </div>
+          ) : null}
         </div>
         {/* Removed file chooser: paste-only flow */}
         {/* Hidden file input for manual uploads */}

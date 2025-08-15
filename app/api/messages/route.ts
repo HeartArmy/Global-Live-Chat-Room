@@ -3,7 +3,7 @@ import { publish } from '@/lib/events'
 export const dynamic = 'force-dynamic'
 import { getDatabase } from '@/lib/mongodb'
 import { ChatMessage } from '@/types/chat'
-import { ObjectId } from 'mongodb'
+import { ObjectId, type WithId, type Filter } from 'mongodb'
 import { getCurrentTimestamp } from '@/utils/timezone'
 import nodemailer from 'nodemailer'
 
@@ -17,14 +17,14 @@ export async function GET(request: NextRequest) {
     const afterTs = searchParams.get('afterTs')
 
     const db = await getDatabase()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const collection = db.collection('messages') as any
+    type DbMessage = Omit<ChatMessage, '_id'> & { _id: ObjectId }
+    const collection = db.collection<DbMessage>('messages')
 
     // Helper to serialize Mongo docs -> plain JSON
-    const serialize = (docs: any[]) =>
+    const serialize = (docs: WithId<DbMessage>[]) =>
       docs.map((d) => ({
         ...d,
-        _id: d?._id?.toString?.() || d?._id,
+        _id: d._id.toString(),
       }))
 
     // If afterTs is provided, fetch newer/updated messages (for live updates)
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
       const beforeDate = new Date(beforeTs)
       const beforeIdRaw = searchParams.get('beforeId')
       const beforeId = beforeIdRaw && ObjectId.isValid(beforeIdRaw) ? new ObjectId(beforeIdRaw) : null
-      const query = beforeId
+      const query: Filter<DbMessage> = beforeId
         ? { $or: [ { timestamp: { $lt: beforeDate } }, { timestamp: beforeDate, _id: { $lt: beforeId } } ] }
         : { timestamp: { $lt: beforeDate } }
       const olderDesc = await collection
@@ -217,7 +217,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update message' }, { status: 500 })
     }
     const updated = await collection.findOne({ _id: new ObjectId(id) })
-    if (updated) publish({ type: 'message_edited', payload: { ...updated, _id: updated._id?.toString?.() || updated._id } })
+    if (updated) publish({ type: 'message_edited', payload: { ...updated, _id: updated._id.toString() } })
     return NextResponse.json(updated)
   } catch {
     return NextResponse.json({ error: 'Failed to edit message' }, { status: 500 })

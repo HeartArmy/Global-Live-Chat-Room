@@ -28,8 +28,7 @@ export default function Home() {
   const [showScrollToLatest, setShowScrollToLatest] = useState(false)
   const didInitialScroll = useRef(false)
   const [countryCode, setCountryCode] = useState<string | null>(null)
-  // Rate-limit top loading
-  const lastOlderLoadAtRef = useRef(0)
+  // Removed time rate-limit; rely on isLoadingOlder guard
   // Pagination state
   const [oldestTs, setOldestTs] = useState<string | null>(null)
   const [oldestId, setOldestId] = useState<string | null>(null)
@@ -171,28 +170,7 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [fetchStats, pollNewer])
 
-  // Observe top sentinel to auto-load older consistently
-  useEffect(() => {
-    const root = messagesContainerRef.current
-    const target = topSentinelRef.current
-    if (!root || !target) return
-    const obs = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            const now = Date.now()
-            if (now - lastOlderLoadAtRef.current > 600 && !isLoadingOlder && hasMoreOlder && oldestTs) {
-              lastOlderLoadAtRef.current = now
-              loadOlder()
-            }
-          }
-        }
-      },
-      { root, threshold: 0.1 }
-    )
-    obs.observe(target)
-    return () => obs.disconnect()
-  }, [isLoadingOlder, hasMoreOlder, oldestTs])
+  // (moved below loadOlder)
 
   // SSE subscription for instant updates
   useEffect(() => {
@@ -234,7 +212,7 @@ export default function Home() {
   }, [])
 
   // Fetch older messages before current oldestTs and prepend, preserving scroll position
-  const loadOlder = async () => {
+  const loadOlder = useCallback(async () => {
     if (isLoadingOlder || !hasMoreOlder || !oldestTs) return
     const container = messagesContainerRef.current
     if (!container) return
@@ -271,11 +249,31 @@ export default function Home() {
     } catch {}
     finally {
       setIsLoadingOlder(false)
-      lastOlderLoadAtRef.current = Date.now()
     }
-  }
+  }, [CHUNK_SIZE, hasMoreOlder, isLoadingOlder, oldestId, oldestTs])
 
   // (moved pollNewer and fetchStats above)
+
+  // Observe top sentinel to auto-load older consistently (placed after loadOlder)
+  useEffect(() => {
+    const root = messagesContainerRef.current
+    const target = topSentinelRef.current
+    if (!root || !target) return
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            if (!isLoadingOlder && hasMoreOlder && oldestTs) {
+              loadOlder()
+            }
+          }
+        }
+      },
+      { root, threshold: 0.1 }
+    )
+    obs.observe(target)
+    return () => obs.disconnect()
+  }, [loadOlder, isLoadingOlder, hasMoreOlder, oldestTs])
 
   const handleSendMessage = async (message: string, reply?: ReplyInfo, html?: string) => {
     if (!user || isSending) return
@@ -433,23 +431,14 @@ export default function Home() {
             setIsNearBottom(atBottom)
             setAutoScrollLocked(!atBottom)
             // Chip visibility is handled by isNearBottom effect
-            // If near the top, load older messages
-            const topThreshold = TOP_THRESHOLD
-            if (el.scrollTop <= topThreshold) {
-              const now = Date.now()
-              if (now - lastOlderLoadAtRef.current > 800 && !isLoadingOlder && hasMoreOlder && oldestTs) {
-                lastOlderLoadAtRef.current = now
-                loadOlder()
-              }
-            }
           }}
         >
           {/* Top sentinel for consistent older-loading */}
           <div ref={topSentinelRef} className="h-px" />
           {/* Beginning marker */}
           {!hasMoreOlder && (
-            <div className="py-1 flex justify-center">
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/10 dark:bg-white/10 border border-white/10 text-gray-400">You’ve reached the beginning</span>
+            <div className="sticky top-0 z-10 py-1 flex justify-center">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/20 dark:bg-white/10 backdrop-blur border border-white/10 text-gray-300">You’ve reached the beginning</span>
             </div>
           )}
           {/* Top loader for older messages */}
