@@ -19,10 +19,11 @@
     "mongodb": "^6.3.0",
     "next": "^15.0.0",
     "nodemailer": "^6.9.13",
+    "quill": "^1.3.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "quill": "^1.3.7",
     "react-quill": "^2.0.0",
+    "react-quill-new": "^3.6.0",
     "typescript": "^5.0.0",
     "uploadthing": "^7.7.3"
   },

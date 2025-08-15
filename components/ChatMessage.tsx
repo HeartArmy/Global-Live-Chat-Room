@@ -9,7 +9,7 @@ import { CornerUpRight, Pencil, Check, X } from 'lucide-react'
 import { formatTimestamp, formatAbsolute } from '@/utils/timezone'
 import { countryCodeToFlag } from '@/utils/geo'
 
-const ReactQuill = dynamic<ReactQuillProps>(() => import('react-quill'), { ssr: false })
+const ReactQuill = dynamic<ReactQuillProps>(() => import('react-quill-new'), { ssr: false })
 
 interface ChatMessageProps {
   message: ChatMessageType

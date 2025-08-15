@@ -13,7 +13,7 @@ import { ReplyInfo } from '@/types/chat'
 
 // Quill bubble theme styles are imported globally in app/globals.css
 const ReactQuill = dynamic(
-  () => import('react-quill'),
+  () => import('react-quill-new'),
   { ssr: false }
 ) as unknown as React.ForwardRefExoticComponent<ReactQuillProps & React.RefAttributes<ReactQuillType>>
 
