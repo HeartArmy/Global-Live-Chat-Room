@@ -369,6 +369,20 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                   placeholder="URL (e.g., https://example.com)"
                   className="w-full rounded-md bg-black/20 border border-white/10 px-2 py-1 text-xs text-gray-100 placeholder:text-gray-400"
                   autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const res = sanitizeAndValidateUrl(linkUrl)
+                      if (!res.ok || !res.href) { setLinkError(res.error || 'Invalid URL'); return }
+                      insertLinkIntoEditor(res.href, linkText)
+                      setShowLinkPopover(false)
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setShowLinkPopover(false)
+                    }
+                  }}
                 />
                 <input
                   type="text"
@@ -376,6 +390,20 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                   onChange={(e) => setLinkText(e.target.value)}
                   placeholder="Text to display (optional)"
                   className="w-full rounded-md bg-black/20 border border-white/10 px-2 py-1 text-xs text-gray-100 placeholder:text-gray-400"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const res = sanitizeAndValidateUrl(linkUrl)
+                      if (!res.ok || !res.href) { setLinkError(res.error || 'Invalid URL'); return }
+                      insertLinkIntoEditor(res.href, linkText)
+                      setShowLinkPopover(false)
+                    } else if (e.key === 'Escape') {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setShowLinkPopover(false)
+                    }
+                  }}
                 />
                 {linkError && <div className="text-[10px] text-red-300">{linkError}</div>}
                 <div className="flex items-center justify-end gap-2 mt-1">
@@ -411,7 +439,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                 type="button"
                 className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
                 onClick={() => applyFormat('bold')}
-                title="Bold (⌘B / Ctrl+B)"
+                title="Bold"
                 aria-label="Bold"
               >
                 <Bold size={16} />
@@ -422,7 +450,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                 type="button"
                 className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
                 onClick={() => applyFormat('italic')}
-                title="Italic (⌘I / Ctrl+I)"
+                title="Italic"
                 aria-label="Italic"
               >
                 <Italic size={16} />
@@ -433,7 +461,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                 type="button"
                 className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
                 onClick={() => applyFormat('underline')}
-                title="Underline (⌘U / Ctrl+U)"
+                title="Underline"
                 aria-label="Underline"
               >
                 <Underline size={16} />
@@ -453,7 +481,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                   setLinkError(null)
                   setShowLinkPopover(true)
                 }}
-                title="Insert link (⌘K / Ctrl+K)"
+                title="Insert link"
                 aria-label="Insert link"
               >
                 <Link2 size={16} />
@@ -478,7 +506,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                 type="button"
                 className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
                 onClick={() => applyFormat('header1')}
-                title="Heading 1 (⌘1 / Ctrl+1)"
+                title="Heading 1"
                 aria-label="H1"
               >
                 <Type size={16} />
@@ -490,7 +518,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                 type="button"
                 className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
                 onClick={() => applyFormat('header2')}
-                title="Heading 2 (⌘2 / Ctrl+2)"
+                title="Heading 2"
                 aria-label="H2"
               >
                 <Type size={16} />
@@ -502,7 +530,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                 type="button"
                 className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
                 onClick={() => applyFormat('header3')}
-                title="Heading 3 (⌘3 / Ctrl+3)"
+                title="Heading 3"
                 aria-label="H3"
               >
                 <Type size={16} />
@@ -540,7 +568,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
           </div>
         </div>
         <div className="mb-1 text-[10px] text-gray-400 select-none">
-          Tip: To add a hyperlink, use the Link icon or ⌘K / Ctrl+K
+          Tip: To add a hyperlink, use the Link icon
         </div>
         {/* Quill editor */}
         <div
