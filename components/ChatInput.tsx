@@ -227,7 +227,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const text = (plainText || '').trim()
-    let contentHtml = html || ''
+    const contentHtml = html || ''
     const hasContent = text.length > 0 || /<img\b/i.test(contentHtml)
     if (!disabled && hasContent) {
       onSendMessage(text || ' ', replyTo, contentHtml)
