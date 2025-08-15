@@ -144,6 +144,22 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
     return Date.now() - createdAt.getTime() <= ONE_HOUR
   }, [isCurrentUser, message.timestamp])
 
+  // Remove native tooltips from links inside the edit Quill editor (strip title attributes)
+  useEffect(() => {
+    if (!isEditing) return
+    const q: Quill | null = editQuillRef.current && (editQuillRef.current as unknown as ReactQuillType).getEditor ? (editQuillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+    if (!q) return
+    const root = q.root as HTMLElement
+    const stripTitles = () => {
+      const anchors = root.querySelectorAll('a[title]')
+      anchors.forEach(a => a.removeAttribute('title'))
+    }
+    stripTitles()
+    const mo = new MutationObserver(() => stripTitles())
+    mo.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['title'] })
+    return () => mo.disconnect()
+  }, [isEditing])
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}

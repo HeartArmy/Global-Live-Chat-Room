@@ -185,6 +185,26 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     // No automatic hyperlinking; links are inserted only via the Insert Link dialog (⌘K / Ctrl+K)
   }
 
+  // Remove native tooltips from links inside the editor (strip title attributes)
+  useEffect(() => {
+    const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+    if (!q) return
+    const root = q.root as HTMLElement
+
+    const stripTitles = () => {
+      const anchors = root.querySelectorAll('a[title]')
+      anchors.forEach(a => a.removeAttribute('title'))
+    }
+
+    // Initial pass
+    stripTitles()
+
+    // Observe future changes
+    const mo = new MutationObserver(() => stripTitles())
+    mo.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['title'] })
+    return () => mo.disconnect()
+  }, [quillRef])
+
   const handleFilesUpload = async (files: File[]) => {
     if (!files.length) return
     const valid = files.filter(validateFile)
@@ -520,7 +540,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
           </div>
         </div>
         <div className="mb-1 text-[10px] text-gray-400 select-none">
-          Tip: Insert a link with ⌘K / Ctrl+K
+          Tip: To add a hyperlink, use the Link icon or ⌘K / Ctrl+K
         </div>
         {/* Quill editor */}
         <div
