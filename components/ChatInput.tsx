@@ -145,7 +145,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       let m: RegExpExecArray | null
       while ((m = urlRegex.exec(full)) !== null) {
         const leading = m[1] || ''
-        let urlText = m[2]
+        const urlText = m[2]
         // Trim trailing punctuation such as . , ! ? ; : )
         const trimmed = urlText.replace(/[),.!?;:]+$/, '')
         if (!trimmed) continue
