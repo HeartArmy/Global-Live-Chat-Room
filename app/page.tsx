@@ -401,7 +401,7 @@ export default function Home() {
         >
           {/* Beginning marker */}
           {!hasMoreOlder && (
-            <div className="sticky top-0 z-10 py-1 flex justify-center">
+            <div className="py-1 flex justify-center">
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/10 dark:bg-white/10 border border-white/10 text-gray-400">You’ve reached the beginning</span>
             </div>
           )}

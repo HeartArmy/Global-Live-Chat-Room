@@ -159,6 +159,29 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                 {countryCodeToFlag(message.countryCode || (isCurrentUser ? currentUserCountry : undefined))}
               </span>
             </span>
+            {/* Quick reactions on hover: left of the bubble */}
+            {onToggleReaction && message._id && (
+              <div className="pointer-events-none absolute top-1/2 -left-2 -translate-x-full -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="pointer-events-auto inline-flex items-center gap-1 bg-black/10 dark:bg-white/10 rounded-full px-1 py-0.5">
+                  {EMOJIS.map((em) => (
+                    <button
+                      key={em}
+                      type="button"
+                      onClick={async () => {
+                        const r = await onToggleReaction(message._id!, em)
+                        if (r && onEdited) {
+                          onEdited({ ...message, reactions: r })
+                        }
+                      }}
+                      className="px-1.5 py-0.5 rounded-full border border-white/10 hover:bg-white/10 text-xs"
+                      title={`React ${em}`}
+                    >
+                      <span>{em}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <div className={`relative chat-bubble ${isCurrentUser ? 'chat-bubble-user' : 'chat-bubble-other'}`}>
             {message.replyTo && (
@@ -232,8 +255,15 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
             ) : (
               html && html.trim().length > 0 ? (
                 <div
-                  className="text-sm leading-relaxed break-words overflow-x-hidden"
-                  dangerouslySetInnerHTML={{ __html: (html || '').replace(/<img\s/gi, '<img class="rounded-xl max-w-[70vw] sm:max-w-[280px] h-auto inline-block align-middle" ') }}
+                  className="leading-relaxed break-words overflow-x-hidden"
+                  dangerouslySetInnerHTML={{ __html: (html || '')
+                    // Images responsive
+                    .replace(/<img\s/gi, '<img class="rounded-xl max-w-[70vw] sm:max-w-[280px] h-auto inline-block align-middle" ')
+                    // Headings sizing
+                    .replace(/<h1(\s|>)/gi, '<h1 class="text-2xl font-semibold"$1')
+                    .replace(/<h2(\s|>)/gi, '<h2 class="text-base font-medium"$1')
+                    .replace(/<h3(\s|>)/gi, '<h3 class="text-sm font-medium opacity-90"$1')
+                  }}
                 />
               ) : (
                 <p className="text-sm leading-relaxed break-words overflow-x-hidden" dangerouslySetInnerHTML={renderHtml} />
@@ -313,35 +343,17 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                       )
                     })}
 
-                  {/* Quick reactions appear on hover, positioned just below the timestamp row */}
-                  <div className="pointer-events-none absolute left-0 top-full mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <div className="pointer-events-auto inline-flex items-center gap-1 bg-black/10 dark:bg-white/10 rounded-full px-1 py-0.5">
-                    {EMOJIS.map((em) => (
-                      <button
-                        key={em}
-                        type="button"
-                        onClick={async () => {
-                          const r = await onToggleReaction(message._id!, em)
-                          if (r && onEdited) {
-                            onEdited({ ...message, reactions: r })
-                          }
-                        }}
-                        className="px-1.5 py-0.5 rounded-full border border-white/10 hover:bg-white/10 text-xs"
-                        title={`React ${em}`}
-                      >
-                        <span>{em}</span>
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      className="px-2 py-0.5 rounded-full border border-white/10 hover:bg-white/10 text-xs"
-                      onClick={() => setShowEmojiPicker(v => !v)}
-                      title="More reactions"
-                    >
-                      +
-                    </button>
-                    </div>
-                  </div>
+                  {/* Toggle for full emoji picker */}
+                  <button
+                    type="button"
+                    className="px-2 py-0.5 rounded-full border border-white/10 hover:bg-white/10 text-xs"
+                    onClick={() => setShowEmojiPicker(v => !v)}
+                    title="More reactions"
+                  >
+                    +
+                  </button>
+
+                  {/* Quick reactions moved to bubble-left; keep + for more here */}
 
                   {showEmojiPicker && (
                     <div className="absolute z-50 bottom-6 right-0 p-2 w-64 bg-pastel-ink rounded-xl border border-pastel-gray drop-shadow-xl">

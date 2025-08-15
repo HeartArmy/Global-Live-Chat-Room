@@ -74,7 +74,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     ],
     editorProps: {
       attributes: {
-        class: 'chat-textarea input-field pr-20 rounded-2xl transition-all duration-200 resize-none min-h-12 max-h-32 overflow-y-auto',
+        class: 'chat-textarea input-field pr-3 rounded-2xl transition-all duration-200 resize-none min-h-12 max-h-32 overflow-y-auto',
       },
       handlePaste: (view: EditorView, event: ClipboardEvent) => {
         if (disabled) return false
@@ -248,12 +248,12 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     <motion.form
       id="chat-input-form"
       onSubmit={handleSubmit}
-      className="flex items-center gap-3 p-4 glass-effect border-t border-pastel-gray/50"
+      className="flex items-center gap-2 p-4 glass-effect border-t border-pastel-gray/50 flex-nowrap"
       initial={{ y: 50, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay: 0.3 }}
     >
-      <div className="flex-1 relative">
+      <div className="flex-1 relative min-w-0">
         {replyTo && (
           <div className="mb-2 -mt-1 flex items-start gap-2 p-2 rounded-xl bg-pastel-ink/60 border border-pastel-gray pl-3 border-l-4 border-l-pastel-lilac dark:bg-pastel-ink dark:border-pastel-gray/50 dark:text-gray-300">
             <div className="flex-1 min-w-0">
@@ -390,7 +390,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         {/* Locked placeholder overlay */}
         {((!message || message.length === 0) && editor?.isEmpty) && (
           <div
-            className="pointer-events-none select-none absolute left-4 right-20 inset-y-0 flex items-center text-gray-400 dark:text-gray-400/80 truncate"
+            className="pointer-events-none select-none absolute left-4 right-4 top-3.5 text-gray-400 dark:text-gray-400/80 truncate"
             aria-hidden
           >
             {currentPlaceholder}
