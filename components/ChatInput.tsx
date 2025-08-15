@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Send, Smile, Image as ImageIcon, X } from 'lucide-react'
+import { Send, Smile, Image as ImageIcon, X, Bold, Italic, Underline, Type } from 'lucide-react'
 
 import { ReplyInfo } from '@/types/chat'
 
@@ -56,30 +56,75 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     return true
   }
 
+  // Wrap current selection with token (e.g., **bold**)
+  const wrapSelection = (token: string) => {
+    const el = textareaRef.current
+    if (!el) return
+    const start = el.selectionStart ?? 0
+    const end = el.selectionEnd ?? 0
+    const before = message.slice(0, start)
+    const selected = message.slice(start, end)
+    const after = message.slice(end)
+    const newVal = `${before}${token}${selected || 'text'}${token}${after}`
+    setMessage(newVal)
+    requestAnimationFrame(() => {
+      el.focus()
+      const caret = start + token.length + (selected ? selected.length : 4)
+      el.setSelectionRange(caret, caret)
+      el.style.height = 'auto'
+      el.style.height = `${Math.min(el.scrollHeight, 128)}px`
+    })
+  }
+
+  // Prefix current line(s) with header marks (#, ##, ###)
+  const prefixLine = (prefix: string) => {
+    const el = textareaRef.current
+    if (!el) return
+    const start = el.selectionStart ?? 0
+    const end = el.selectionEnd ?? 0
+    const before = message.slice(0, start)
+    const selection = message.slice(start, end)
+    const after = message.slice(end)
+    const sel = selection || 'Heading'
+    const newVal = `${before}${prefix}${sel}${after}`
+    setMessage(newVal)
+    requestAnimationFrame(() => {
+      el.focus()
+      const caret = start + prefix.length + sel.length
+      el.setSelectionRange(caret, caret)
+      el.style.height = 'auto'
+      el.style.height = `${Math.min(el.scrollHeight, 128)}px`
+    })
+  }
+
   const handleFilesUpload = async (files: File[]) => {
     if (!files.length) return
     const valid = files.filter(validateFile)
     if (!valid.length) return
     try {
       setIsUploading(true)
-      const form = new FormData()
-      form.append('file', valid[0])
-      const res = await fetch('/api/paste-upload', {
-        method: 'POST',
-        body: form,
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err?.error || 'Upload failed')
+      for (const f of valid) {
+        const form = new FormData()
+        form.append('file', f)
+        const res = await fetch('/api/paste-upload', {
+          method: 'POST',
+          body: form,
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err?.error || 'Upload failed')
+        }
+        const data = await res.json()
+        if (data?.url) {
+          // Insert markdown at cursor and keep composing
+          insertAtCursor(`![image](${data.url}) `)
+        } else {
+          alert('Upload succeeded but no URL was returned. Please try again.')
+        }
       }
-      const data = await res.json()
-      if (data?.url) {
-        onSendMessage(`![image](${data.url})`)
-      } else {
-        alert('Upload succeeded but no URL was returned. Please try again.')
-      }
-    } catch (err: any) {
-      alert(err?.message || 'Failed to upload image')
+    } catch (err: unknown) {
+      const msg = typeof err === 'object' && err && 'message' in err ? String((err as { message?: unknown }).message) : undefined
+      alert(msg || 'Failed to upload image')
     } finally {
       setIsUploading(false)
     }
@@ -103,6 +148,24 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSubmit(e)
+    }
+    // shortcuts
+    const isMac = navigator.platform.toUpperCase().includes('MAC')
+    const mod = isMac ? e.metaKey : e.ctrlKey
+    if (mod) {
+      if (e.key.toLowerCase() === 'b') {
+        e.preventDefault(); wrapSelection('**')
+      } else if (e.key.toLowerCase() === 'i') {
+        e.preventDefault(); wrapSelection('*')
+      } else if (e.key.toLowerCase() === 'u') {
+        e.preventDefault(); wrapSelection('__')
+      } else if (e.key === '1') {
+        e.preventDefault(); prefixLine('# ')
+      } else if (e.key === '2') {
+        e.preventDefault(); prefixLine('## ')
+      } else if (e.key === '3') {
+        e.preventDefault(); prefixLine('### ')
+      }
     }
   }
 
@@ -177,6 +240,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
               <div className="text-xs font-medium text-pastel-lilac">Replying to {replyTo.username}</div>
               <div className="text-xs text-gray-300 truncate flex items-center gap-2">
                 {replyTo.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={replyTo.imageUrl} alt="reply" className="w-6 h-6 rounded object-cover" />
                 )}
                 <span className="truncate">{replyTo.preview}</span>
@@ -265,7 +329,66 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         />
 
         {/* Action buttons container (stable layout) */}
+        {/* Formatting toolbar */}
         <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          <button
+            type="button"
+            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+            onClick={() => wrapSelection('**')}
+            title="Bold (Cmd/Ctrl + B)"
+            aria-label="Bold"
+          >
+            <Bold size={16} />
+          </button>
+          <button
+            type="button"
+            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+            onClick={() => wrapSelection('*')}
+            title="Italic (Cmd/Ctrl + I)"
+            aria-label="Italic"
+          >
+            <Italic size={16} />
+          </button>
+          <button
+            type="button"
+            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+            onClick={() => wrapSelection('__')}
+            title="Underline (Cmd/Ctrl + U)"
+            aria-label="Underline"
+          >
+            <Underline size={16} />
+          </button>
+          <div className="h-5 w-px bg-white/10 mx-1" />
+          <button
+            type="button"
+            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+            onClick={() => prefixLine('# ')}
+            title="Large heading (Cmd/Ctrl + 1)"
+            aria-label="H1"
+          >
+            <Type size={16} />
+            <span className="ml-1 text-xs">H1</span>
+          </button>
+          <button
+            type="button"
+            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+            onClick={() => prefixLine('## ')}
+            title="Medium heading (Cmd/Ctrl + 2)"
+            aria-label="H2"
+          >
+            <Type size={16} />
+            <span className="ml-1 text-xs">H2</span>
+          </button>
+          <button
+            type="button"
+            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+            onClick={() => prefixLine('### ')}
+            title="Small heading (Cmd/Ctrl + 3)"
+            aria-label="H3"
+          >
+            <Type size={16} />
+            <span className="ml-1 text-xs">H3</span>
+          </button>
           {/* Image upload (paste hint) */}
           <button
             type="button"

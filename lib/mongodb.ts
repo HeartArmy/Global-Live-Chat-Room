@@ -10,6 +10,16 @@ const options = {}
 
 let client: MongoClient
 let clientPromise: Promise<MongoClient>
+let indexesEnsured = false
+
+async function ensureIndexes(db: Db) {
+  try {
+    // Create ascending index on timestamp to speed up sorted range queries
+    await db.collection('messages').createIndex({ timestamp: 1 }, { name: 'timestamp_asc' })
+  } catch {
+    // ignore index creation errors (e.g., already exists)
+  }
+}
 
 if (process.env.NODE_ENV === 'development') {
   // In development mode, use a global variable so that the value
@@ -31,7 +41,15 @@ if (process.env.NODE_ENV === 'development') {
 
 export async function getDatabase(): Promise<Db> {
   const client = await clientPromise
-  return client.db('chatroom')
+  const db = client.db('chatroom')
+  if (!indexesEnsured) {
+    indexesEnsured = true
+    // Kick off index creation in the background; do not block the request path
+    ;(async () => {
+      try { await ensureIndexes(db) } catch {}
+    })()
+  }
+  return db
 }
 
 export default clientPromise

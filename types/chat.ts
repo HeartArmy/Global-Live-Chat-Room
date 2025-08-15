@@ -13,6 +13,13 @@ export interface ChatMessage {
   timezone: string
   countryCode?: string
   replyTo?: ReplyInfo
+  editedAt?: Date
+  reactions?: ReactionMap
+}
+
+export type ReactionMap = {
+  // key is emoji, value is list of usernames who reacted with that emoji
+  [emoji: string]: string[]
 }
 
 export interface User {

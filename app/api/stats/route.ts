@@ -23,7 +23,7 @@ export async function GET() {
       onlineCount,
       uniqueUsers: uniqueUsers.length
     })
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { 
         totalMessages: 0,

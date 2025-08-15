@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { Heart, Mail, Github } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
 
 export default function Footer() {
   return (
@@ -83,7 +84,7 @@ export default function Footer() {
 }
 
 function FunFacts() {
-  const facts = [
+  const facts = useMemo(() => [
     "🌍 Messages are stored in UTC for global consistency",
     "🤖 Simple math keeps the bots away",
     "✨ Built with Next.js 15 and React 18",
@@ -91,7 +92,7 @@ function FunFacts() {
     "🎨 Designed with Apple's aesthetic in mind",
     "🔒 Your privacy matters - no tracking, just chatting",
     "🌟 Join thousands of conversations happening right now"
-  ]
+  ], [])
 
   const [currentFact, setCurrentFact] = useState(facts[0])
 
@@ -119,5 +120,4 @@ function FunFacts() {
   )
 }
 
-// Need to import useState and useEffect
-import { useState, useEffect } from 'react'
+//

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
@@ -19,10 +19,6 @@ export const metadata: Metadata = {
   authors: [{ name: 'Arham' }],
   alternates: {
     canonical: siteUrl,
-  },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
   },
   robots: {
     index: true,
@@ -69,6 +65,11 @@ export const metadata: Metadata = {
     apple: [{ url: '/icon-light.svg?v=2' }],
     // No .ico shortcut; rely on SVGs above
   },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
     { media: '(prefers-color-scheme: dark)', color: '#0b0b0d' },

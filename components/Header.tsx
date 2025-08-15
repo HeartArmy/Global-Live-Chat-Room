@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { countryCodeToFlag } from '@/utils/geo'
 import { Globe, Users, Clock } from 'lucide-react'
 import { getCurrentTimestamp } from '@/utils/timezone'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 
 interface HeaderProps {
   onlineCount?: number
@@ -117,7 +117,7 @@ export default function Header({ onlineCount = 0, totalMessages = 0, username, c
 }
 
 function FunSubtitle() {
-  const subtitles = [
+  const subtitles = useMemo(() => [
     "Where strangers become friends 🌟",
     "Breaking barriers, one message at a time",
     "Your thoughts, amplified globally 📢",
@@ -126,7 +126,7 @@ function FunSubtitle() {
     "Where every voice matters",
     "Building bridges with words",
     "The world is listening... 👂"
-  ]
+  ], [])
 
   const [currentSubtitle, setCurrentSubtitle] = useState(subtitles[0])
 

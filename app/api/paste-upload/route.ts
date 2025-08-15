@@ -19,7 +19,6 @@ export async function POST(req: Request) {
   try {
     // Ensure UploadThing secret is configured
     const hasSecret = Boolean(process.env.UPLOADTHING_SECRET)
-    const hasAppId = Boolean(process.env.UPLOADTHING_APP_ID)
     if (!hasSecret) {
       // Diagnostics removed from console to avoid noisy logs
       return NextResponse.json(
@@ -46,30 +45,45 @@ export async function POST(req: Request) {
     const utapi = new UTApi()
 
     // Upload using UploadThing server API
-    let uploaded: any
+    let uploaded: unknown
     try {
       uploaded = await utapi.uploadFiles(file)
-    } catch (err: any) {
-      return NextResponse.json({ error: err?.message || 'Upload failed' }, { status: 500 })
+    } catch (err: unknown) {
+      const message =
+        typeof err === 'object' && err && 'message' in err
+          ? String((err as { message?: unknown }).message || 'Upload failed')
+          : 'Upload failed'
+      return NextResponse.json({ error: message }, { status: 500 })
     }
 
     // Handle UploadThing response
     // uploaded can be { data, error } or array depending on version
     // Normalize to a single item with a url
-    const dataItem = uploaded?.data ?? (Array.isArray(uploaded?.data) ? uploaded.data[0] : undefined)
-    const urlFromApi = dataItem?.url as string | undefined
-    const key = dataItem?.key as string | undefined
+    const u = uploaded as { data?: unknown; error?: unknown }
+    const d = u?.data
+    const dataItem: unknown = Array.isArray(d) ? d[0] : d
+    const rec = (dataItem && typeof dataItem === 'object') ? (dataItem as Record<string, unknown>) : undefined
+    const urlFromApi = rec && typeof rec.url === 'string' ? rec.url : undefined
+    const key = rec && typeof rec.key === 'string' ? rec.key : undefined
     const url = urlFromApi || (key ? `https://utfs.io/f/${key}` : undefined)
 
     if (!url) {
-      const rawError = uploaded?.error
-      const errMsg = typeof rawError === 'string' ? rawError : (rawError?.message || 'Upload failed')
+      const rawError = u?.error
+      const errMsg = typeof rawError === 'string'
+        ? rawError
+        : (rawError && typeof rawError === 'object' && 'message' in rawError && typeof (rawError as { message?: unknown }).message === 'string'
+          ? String((rawError as { message?: unknown }).message)
+          : 'Upload failed')
       return NextResponse.json({ error: errMsg }, { status: 500 })
     }
 
     return NextResponse.json({ url })
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Upload failed' }, { status: 500 })
+  } catch (e: unknown) {
+    const message =
+      typeof e === 'object' && e && 'message' in e
+        ? String((e as { message?: unknown }).message || 'Upload failed')
+        : 'Upload failed'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 

@@ -12,7 +12,7 @@ export async function GET() {
       .countDocuments({ lastSeen: { $gte: since } })
 
     return NextResponse.json({ activeCount })
-  } catch (e) {
+  } catch {
     return NextResponse.json({ activeCount: 0 }, { status: 200 })
   }
 }
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       .countDocuments({ lastSeen: { $gte: since } })
 
     return NextResponse.json({ ok: true, activeCount })
-  } catch (e) {
+  } catch {
     return NextResponse.json({ ok: false }, { status: 200 })
   }
 }

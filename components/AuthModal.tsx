@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { User, ArithmeticChallenge } from '@/types/chat'
 import { generateArithmeticChallenge } from '@/utils/arithmetic'
@@ -79,13 +79,13 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
     }
   }
 
-  const funnyPlaceholders = [
+  const funnyPlaceholders = useMemo(() => [
     "Your awesome name",
     "What should we call you?",
     "Pick a cool name",
     "Your chat identity",
     "Name for the world to see"
-  ]
+  ], [])
 
   const [placeholder, setPlaceholder] = useState(funnyPlaceholders[0])
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import AuthModal from '@/components/AuthModal'
 import ChatMessage from '@/components/ChatMessage'
@@ -34,6 +34,8 @@ export default function Home() {
   const [hasMoreOlder, setHasMoreOlder] = useState(true)
   // Stable session id for presence tracking
   const [sessionId] = useState<string>(() => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+  // Prevent overlapping polls
+  const isPollingRef = useRef(false)
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -85,22 +87,7 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length])
 
-  // Fetch messages on component mount
-  useEffect(() => {
-    loadInitial()
-    fetchStats()
-    // fetch country (privacy-friendly; no IP stored)
-    fetch('/api/geo')
-      .then((r) => r.json()).then((d) => setCountryCode(d?.countryCode || null)).catch(() => {})
-    
-    // Poll for new messages every 3 seconds
-    const interval = setInterval(() => {
-      pollNewer()
-      fetchStats()
-    }, 3000)
-
-    return () => clearInterval(interval)
-  }, [])
+  // (mount effect moved below, after fetchStats/pollNewer declarations)
 
   // Load latest chunk initially
   const loadInitial = async () => {
@@ -120,6 +107,59 @@ export default function Home() {
       setIsLoading(false)
     }
   }
+
+  // Poll for new messages newer than latestTs and append
+  const pollNewer = useCallback(async () => {
+    if (!latestTs || isPollingRef.current) return
+    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+    isPollingRef.current = true
+    try {
+      const url = `/api/messages?afterTs=${encodeURIComponent(latestTs)}&limit=${CHUNK_SIZE}`
+      const res = await fetch(url, { cache: 'no-store' })
+      if (res.ok) {
+        const newer: ChatMessageType[] = await res.json()
+        if (newer.length > 0) {
+          setMessages(prev => mergeUnique(prev, newer, 'append'))
+          setLatestTs(String(newer[newer.length - 1].timestamp))
+        }
+      }
+    } catch {}
+    finally {
+      isPollingRef.current = false
+    }
+  }, [latestTs])
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const response = await fetch('/api/stats', { cache: 'no-store' })
+      if (response.ok) {
+        const data = await response.json()
+        setStats(data)
+      }
+    } catch {
+      // swallow errors in UI
+    }
+  }, [])
+
+  // Fetch messages on component mount
+  useEffect(() => {
+    loadInitial()
+    fetchStats()
+    // fetch country (privacy-friendly; no IP stored)
+    fetch('/api/geo')
+      .then((r) => r.json()).then((d) => setCountryCode(d?.countryCode || null)).catch(() => {})
+    
+    // Poll for new messages every 3 seconds
+    const interval = setInterval(() => {
+      // Only poll when tab visible
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        pollNewer()
+        fetchStats()
+      }
+    }, 1500)
+
+    return () => clearInterval(interval)
+  }, [fetchStats, pollNewer])
 
   // Fetch older messages before current oldestTs and prepend, preserving scroll position
   const loadOlder = async () => {
@@ -151,33 +191,7 @@ export default function Home() {
     }
   }
 
-  // Poll for new messages newer than latestTs and append
-  const pollNewer = async () => {
-    if (!latestTs) return
-    try {
-      const url = `/api/messages?afterTs=${encodeURIComponent(latestTs)}&limit=${CHUNK_SIZE}`
-      const res = await fetch(url, { cache: 'no-store' })
-      if (res.ok) {
-        const newer: ChatMessageType[] = await res.json()
-        if (newer.length > 0) {
-          setMessages(prev => mergeUnique(prev, newer, 'append'))
-          setLatestTs(String(newer[newer.length - 1].timestamp))
-        }
-      }
-    } catch {}
-  }
-
-  const fetchStats = async () => {
-    try {
-      const response = await fetch('/api/stats', { cache: 'no-store' })
-      if (response.ok) {
-        const data = await response.json()
-        setStats(data)
-      }
-    } catch (error) {
-      // swallow errors in UI
-    }
-  }
+  // (moved pollNewer and fetchStats above)
 
   const handleSendMessage = async (message: string, reply?: ReplyInfo) => {
     if (!user || isSending) return
@@ -195,6 +209,21 @@ export default function Home() {
           }
         } catch {}
       }
+      // Optimistic UI: add a temporary message immediately
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const tz = (Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone) || 'UTC'
+      const tempMessage: ChatMessageType = {
+        _id: tempId,
+        username: user.username,
+        message,
+        timestamp: new Date(),
+        timezone: tz,
+        countryCode: cc || undefined,
+        replyTo: reply || undefined,
+      }
+      setMessages(prev => mergeUnique(prev, [tempMessage], 'append'))
+      setLatestTs(String(tempMessage.timestamp))
+
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
@@ -210,19 +239,21 @@ export default function Home() {
 
       if (response.ok) {
         const newMessage = await response.json()
-        setMessages(prev => mergeUnique(prev, [newMessage], 'append'))
-        // Update latestTs to the newly sent message timestamp
-        if (newMessage?.timestamp) {
-          setLatestTs(String(newMessage.timestamp))
-        }
+        // Reconcile: replace temp with real message
+        setMessages(prev => prev.map(m => (m._id === tempId ? { ...m, ...newMessage } : m)))
+        if (newMessage?.timestamp) setLatestTs(String(newMessage.timestamp))
         setReplyTo(undefined)
         fetchStats() // Update stats after sending
       } else {
-        const error = await response.json()
+        await response.json().catch(() => ({}))
+        // Remove optimistic message on failure
+        setMessages(prev => prev.filter(m => m._id !== tempId))
         // swallow errors in UI
         // Could show a toast notification here
       }
-    } catch (error) {
+    } catch {
+      // Rollback optimistic message on error
+      setMessages(prev => prev.filter(m => (m._id || '').startsWith('temp-') === false))
       // swallow errors in UI
     } finally {
       setIsSending(false)
@@ -252,7 +283,7 @@ export default function Home() {
           body: JSON.stringify({ sessionId, username: user?.username }),
           keepalive: true,
         })
-      } catch (e) {
+      } catch {
         // swallow errors; heartbeat is best-effort
       }
     }
@@ -360,6 +391,23 @@ export default function Home() {
                   currentUserCountry={countryCode || undefined}
                   index={index}
                   onReply={(info) => setReplyTo(info)}
+                  onEdited={(updated) => {
+                    setMessages(prev => prev.map(m => (m._id === updated._id ? { ...m, ...updated } : m)))
+                  }}
+                  onToggleReaction={async (id, emoji) => {
+                    try {
+                      const res = await fetch('/api/messages/reactions', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id, username: user?.username, emoji }),
+                      })
+                      if (res.ok) {
+                        const data = await res.json()
+                        return data.reactions
+                      }
+                    } catch {}
+                    return undefined
+                  }}
                 />
               ))}
             </AnimatePresence>
