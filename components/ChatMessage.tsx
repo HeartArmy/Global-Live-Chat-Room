@@ -235,7 +235,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
             {isEditing ? (
               <div className="flex flex-col gap-2">
                 <ReactQuill
-                  ref={editQuillRef as any}
+                  ref={editQuillRef}
                   theme="bubble"
                   value={editHtml ?? html ?? draft}
                   onChange={(value: string, _delta: unknown, _source: unknown, editor: UnprivilegedEditor) => {
@@ -253,7 +253,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                           shiftKey: false,
                           handler: () => {
                             const q: Quill | null = editQuillRef.current && (editQuillRef.current as unknown as ReactQuillType).getEditor ? (editQuillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
-                            // @ts-ignore runtime module exists
+                            // @ts-expect-error history module injected by Quill at runtime
                             q?.history?.undo?.()
                             return false
                           }
@@ -264,7 +264,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                           shiftKey: true,
                           handler: () => {
                             const q: Quill | null = editQuillRef.current && (editQuillRef.current as unknown as ReactQuillType).getEditor ? (editQuillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
-                            // @ts-ignore runtime module exists
+                            // @ts-expect-error history module injected by Quill at runtime
                             q?.history?.redo?.()
                             return false
                           }
@@ -275,7 +275,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                           shiftKey: false,
                           handler: () => {
                             const q: Quill | null = editQuillRef.current && (editQuillRef.current as unknown as ReactQuillType).getEditor ? (editQuillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
-                            // @ts-ignore runtime module exists
+                            // @ts-expect-error history module injected by Quill at runtime
                             q?.history?.redo?.()
                             return false
                           }
