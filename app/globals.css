@@ -143,3 +143,10 @@
 .quill-wrapper .ql-editor {
   color: #e5e7eb; /* text-gray-200 in dark */
 }
+
+/* Show link styling inside the input while typing */
+.quill-wrapper .ql-editor a {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  color: #93c5fd; /* text-blue-300 */
+}

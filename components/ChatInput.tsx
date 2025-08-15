@@ -47,6 +47,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const quillRef = useRef<ReactQuillType | null>(null)
   const pickerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const autolinkRef = useRef(false)
 
   const MAX_SIZE_BYTES = 1 * 1024 * 1024 // 1 MB
   const ACCEPT_TYPES = [
@@ -127,6 +128,39 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const handleQuillChange = (value: string, _delta: unknown, _source: unknown, editor: UnprivilegedEditor) => {
     setHtml(value)
     setPlainText(editor.getText())
+
+    // Auto-link URLs/domains as you type
+    const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+    if (!q || autolinkRef.current) return
+    autolinkRef.current = true
+    try {
+      const sel = q.getSelection()
+      const full = q.getText(0, q.getLength())
+
+      // Remove existing link attribute across the doc (preserves other formats)
+      q.formatText(0, full.length, 'link', false, 'api')
+
+      // Match http(s), www.(with TLD), or bare domains (excluding www.), optional path. Exclude trailing punctuation.
+      const urlRegex = /(^|[\s(])((?:https?:\/\/)[^\s<>()]+|(?:www\.)[^\s<>()]+\.[a-z]{2,}(?:\/[^^\s<>()]+)?|(?:(?!www\.)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^^\s<>()]+)?)/gi
+      let m: RegExpExecArray | null
+      while ((m = urlRegex.exec(full)) !== null) {
+        const leading = m[1] || ''
+        let urlText = m[2]
+        // Trim trailing punctuation such as . , ! ? ; : )
+        const trimmed = urlText.replace(/[),.!?;:]+$/, '')
+        if (!trimmed) continue
+        const start = m.index + (leading ? leading.length : 0)
+        const href = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`
+        // Apply link format only over the trimmed span
+        q.formatText(start, trimmed.length, 'link', href, 'api')
+      }
+
+      if (sel) {
+        q.setSelection(sel, 'api')
+      }
+    } finally {
+      autolinkRef.current = false
+    }
   }
 
   const handleFilesUpload = async (files: File[]) => {
