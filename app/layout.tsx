@@ -1,6 +1,4 @@
 import type { Metadata, Viewport } from 'next'
-import { Analytics } from '@vercel/analytics/react'
-import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 import { NextSSRPlugin } from '@uploadthing/react/next-ssr-plugin'
 import { extractRouterConfig } from 'uploadthing/server'
@@ -127,8 +125,6 @@ export default function RootLayout({
             }}
           />
         )}
-        <Analytics />
-        <SpeedInsights />
       </body>
     </html>
   )

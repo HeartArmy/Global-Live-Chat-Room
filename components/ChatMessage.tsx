@@ -20,15 +20,17 @@ interface ChatMessageProps {
 export default function ChatMessage({ message, currentUsername, currentUserCountry, index, onReply, onEdited, onToggleReaction }: ChatMessageProps) {
   const isCurrentUser = message.username === currentUsername
   const text = message.message
+  const html = message.html
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState(text)
   const savingRef = useRef(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [topEmojis, setTopEmojis] = useState<string[] | null>(null)
 
-  const imageMarkdownMatch = text.match(/!\[[^\]]*\]\((https?:\/\/[^\s)]+)\)/)
-  const directImageUrlMatch = text.match(/^(https?:\/\/[^\s]+\.(?:png|jpe?g|webp|gif))$/i)
-  const imageUrl = imageMarkdownMatch?.[1] || directImageUrlMatch?.[1]
+  // Only treat as a standalone image message if the entire content is an image markdown or a direct image URL
+  const imageMarkdownMatch = text.match(/^\s*!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)\s*$/)
+  const directImageUrlMatch = text.match(/^\s*(https?:\/\/[^\s]+\.(?:png|jpe?g|webp|gif))\s*$/i)
+  const imageUrl = imageMarkdownMatch?.[2] || directImageUrlMatch?.[1]
   const previewText = imageUrl ? 'Image' : (text.length > 120 ? text.slice(0, 120) + '…' : text)
   const makeReplyInfo = (): ReplyInfo => ({
     id: message._id || `${message.username}-${message.timestamp}`,
@@ -36,7 +38,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
     preview: previewText,
     imageUrl: imageUrl || undefined,
   })
-  // very small, safe renderer: escape HTML, basic markdown for **bold**, *italic*, __underline__, `code`, ```blocks```, lists, headers sizes, linkify, and \n -> <br />
+  // very small, safe renderer: escape HTML, basic markdown for images, **bold**, *italic*, __underline__, `code`, ```blocks```, lists, headers sizes, linkify, and \n -> <br />
   const renderHtml = useMemo(() => {
     const escape = (s: string) => s
       .replace(/&/g, '&amp;')
@@ -47,6 +49,8 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
       .replace(/(^|\s)(www\.[^\s]+)(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>')
       .replace(/(^|\s)((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,})(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>')
     const md = (s: string) => {
+      // images ![alt](url)
+      s = s.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, (_m, alt, url) => `<img src="${url}" alt="${alt}" class="rounded-xl max-w-[280px] h-auto inline-block align-middle" />`)
       // code blocks (fenced)
       s = s.replace(/```([\s\S]*?)```/g, (_m, p1) => `<pre class="bg-black/10 dark:bg-white/10 rounded-md p-2 overflow-x-auto text-xs"><code>${p1}</code></pre>`)
       // inline code
@@ -226,7 +230,11 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                 loading="lazy"
               />
             ) : (
-              <p className="text-sm leading-relaxed" dangerouslySetInnerHTML={renderHtml} />
+              html && html.trim().length > 0 ? (
+                <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />
+              ) : (
+                <p className="text-sm leading-relaxed" dangerouslySetInnerHTML={renderHtml} />
+              )
             )}
             {/* Metadata row inside bubble */}
             <div className={`mt-2 flex items-center justify-between text-[10px] opacity-70`}>
@@ -275,11 +283,35 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
             {onToggleReaction && message._id && (
               <>
                 <span>•</span>
-                <div className="inline-flex items-center gap-1">
-                  {EMOJIS.map((em) => {
-                    const count = (message.reactions?.[em] || []).length
-                    const mine = (message.reactions?.[em] || []).includes(currentUsername || '')
-                    return (
+                <div className="inline-flex items-center gap-1 relative">
+                  {/* Show only emojis that currently have votes */}
+                  {Object.entries(message.reactions || {})
+                    .filter(([, users]) => (users || []).length > 0)
+                    .map(([em, users]) => {
+                      const count = users.length
+                      const mine = users.includes(currentUsername || '')
+                      return (
+                        <button
+                          key={em}
+                          type="button"
+                          onClick={async () => {
+                            const r = await onToggleReaction(message._id!, em)
+                            if (r && onEdited) {
+                              onEdited({ ...message, reactions: r })
+                            }
+                          }}
+                          className={`px-1.5 py-0.5 rounded-full border text-xs ${mine ? 'bg-white/20 border-white/30' : 'border-white/10 hover:bg-white/10'}`}
+                          title={`React ${em}`}
+                        >
+                          <span className="mr-1">{em}</span>
+                          <span>{count}</span>
+                        </button>
+                      )
+                    })}
+
+                  {/* Quick reactions appear on hover */}
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 ml-1">
+                    {EMOJIS.map((em) => (
                       <button
                         key={em}
                         type="button"
@@ -289,22 +321,22 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                             onEdited({ ...message, reactions: r })
                           }
                         }}
-                        className={`px-1.5 py-0.5 rounded-full border text-xs ${mine ? 'bg-white/20 border-white/30' : 'border-white/10 hover:bg-white/10'}`}
+                        className="px-1.5 py-0.5 rounded-full border border-white/10 hover:bg-white/10 text-xs"
                         title={`React ${em}`}
                       >
-                        <span className="mr-1">{em}</span>
-                        {count > 0 && <span>{count}</span>}
+                        <span>{em}</span>
                       </button>
-                    )
-                  })}
-                  <button
-                    type="button"
-                    className="px-2 py-0.5 rounded-full border border-white/10 hover:bg-white/10 text-xs"
-                    onClick={() => setShowEmojiPicker(v => !v)}
-                    title="More reactions"
-                  >
-                    +
-                  </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="px-2 py-0.5 rounded-full border border-white/10 hover:bg-white/10 text-xs"
+                      onClick={() => setShowEmojiPicker(v => !v)}
+                      title="More reactions"
+                    >
+                      +
+                    </button>
+                  </div>
+
                   {showEmojiPicker && (
                     <div className="absolute z-50 bottom-6 right-0 p-2 w-64 bg-pastel-ink rounded-xl border border-pastel-gray drop-shadow-xl">
                       <div className="grid grid-cols-8 gap-1">

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { publish } from '@/lib/events'
 import { getDatabase } from '@/lib/mongodb'
 import { ObjectId } from 'mongodb'
 
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     else users.delete(username)
     reactions[emoji] = Array.from(users)
 
-    await col.updateOne({ _id }, { $set: { reactions } })
+    await col.updateOne({ _id }, { $set: { reactions, updatedAt: new Date() } })
     // If this was an add, increment usage counter for this user
     if (adding) {
       const usage = db.collection('emoji_usage')
@@ -37,6 +38,7 @@ export async function POST(request: NextRequest) {
       )
     }
     const updated = await col.findOne({ _id })
+    if (updated) publish({ type: 'message_updated', payload: { ...updated, _id: updated._id?.toString?.() || updated._id } })
     return NextResponse.json({ reactions: updated?.reactions || {} })
   } catch {
     return NextResponse.json({ error: 'Failed to toggle reaction' }, { status: 500 })

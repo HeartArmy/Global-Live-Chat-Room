@@ -5,9 +5,15 @@ import { motion } from 'framer-motion'
 import { Send, Smile, Image as ImageIcon, X, Bold, Italic, Underline, Type } from 'lucide-react'
 
 import { ReplyInfo } from '@/types/chat'
+import { EditorContent, useEditor, type Editor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import UnderlineExt from '@tiptap/extension-underline'
+import Heading from '@tiptap/extension-heading'
+import Image from '@tiptap/extension-image'
+import type { EditorView } from '@tiptap/pm/view'
 
 interface ChatInputProps {
-  onSendMessage: (message: string, reply?: ReplyInfo) => void
+  onSendMessage: (message: string, reply?: ReplyInfo, html?: string) => void
   disabled?: boolean
   replyTo?: ReplyInfo
   onCancelReply?: () => void
@@ -32,7 +38,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const [showPicker, setShowPicker] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [showPasteHint, setShowPasteHint] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const editorRef = useRef<ReturnType<typeof useEditor> | null>(null)
   const pickerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -56,45 +62,58 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     return true
   }
 
-  // Wrap current selection with token (e.g., **bold**)
+  // TipTap editor setup
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: false,
+      }),
+      UnderlineExt,
+      Heading.configure({ levels: [1, 2, 3] }),
+      Image.configure({ inline: true, allowBase64: false })
+    ],
+    editorProps: {
+      attributes: {
+        class: 'chat-textarea input-field pr-20 rounded-2xl transition-all duration-200 resize-none min-h-12 max-h-32 overflow-y-auto',
+      },
+      handlePaste: (view: EditorView, event: ClipboardEvent) => {
+        if (disabled) return false
+        const cb = event.clipboardData
+        if (!cb) return false
+        const files: File[] = []
+        for (let i = 0; i < cb.items.length; i++) {
+          const it = cb.items[i]
+          if (it.kind === 'file') {
+            const blob = it.getAsFile()
+            if (blob) files.push(new File([blob], 'pasted-image', { type: blob.type }))
+          }
+        }
+        if (files.length) {
+          event.preventDefault()
+          void handleFilesUpload(files)
+          return true
+        }
+        return false
+      },
+    },
+    onUpdate: ({ editor }: { editor: Editor }) => {
+      // Keep a plain-text shadow for the optimistic temp message
+      setMessage(editor.getText())
+    },
+  })
+  editorRef.current = editor
+
   const wrapSelection = (token: string) => {
-    const el = textareaRef.current
-    if (!el) return
-    const start = el.selectionStart ?? 0
-    const end = el.selectionEnd ?? 0
-    const before = message.slice(0, start)
-    const selected = message.slice(start, end)
-    const after = message.slice(end)
-    const newVal = `${before}${token}${selected || 'text'}${token}${after}`
-    setMessage(newVal)
-    requestAnimationFrame(() => {
-      el.focus()
-      const caret = start + token.length + (selected ? selected.length : 4)
-      el.setSelectionRange(caret, caret)
-      el.style.height = 'auto'
-      el.style.height = `${Math.min(el.scrollHeight, 128)}px`
-    })
+    if (!editor) return
+    // Map tokens to TipTap marks
+    if (token === '**') editor.chain().focus().toggleBold().run()
+    else if (token === '*') editor.chain().focus().toggleItalic().run()
+    else if (token === '__') editor.chain().focus().toggleUnderline().run()
   }
 
-  // Prefix current line(s) with header marks (#, ##, ###)
-  const prefixLine = (prefix: string) => {
-    const el = textareaRef.current
-    if (!el) return
-    const start = el.selectionStart ?? 0
-    const end = el.selectionEnd ?? 0
-    const before = message.slice(0, start)
-    const selection = message.slice(start, end)
-    const after = message.slice(end)
-    const sel = selection || 'Heading'
-    const newVal = `${before}${prefix}${sel}${after}`
-    setMessage(newVal)
-    requestAnimationFrame(() => {
-      el.focus()
-      const caret = start + prefix.length + sel.length
-      el.setSelectionRange(caret, caret)
-      el.style.height = 'auto'
-      el.style.height = `${Math.min(el.scrollHeight, 128)}px`
-    })
+  const prefixLine = (level: 1 | 2 | 3) => {
+    if (!editor) return
+    editor.chain().focus().toggleHeading({ level }).run()
   }
 
   const handleFilesUpload = async (files: File[]) => {
@@ -116,8 +135,8 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         }
         const data = await res.json()
         if (data?.url) {
-          // Insert markdown at cursor and keep composing
-          insertAtCursor(`![image](${data.url}) `)
+          // Insert TipTap image node inline at cursor
+          editor?.chain().focus().setImage({ src: data.url, alt: 'image' }).run()
         } else {
           alert('Upload succeeded but no URL was returned. Please try again.')
         }
@@ -132,9 +151,12 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (message.trim() && !disabled) {
-      onSendMessage(message.trim(), replyTo)
+    const html = editor?.getHTML() || ''
+    const text = editor?.getText().trim() || ''
+    if (text && !disabled) {
+      onSendMessage(text, replyTo, html)
       setMessage('')
+      editor?.commands.clearContent(true)
       if (onCancelReply) onCancelReply()
       
       // Change placeholder after sending a message
@@ -144,51 +166,26 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSubmit(e)
+      handleSubmit(e as unknown as React.FormEvent)
+      return
     }
-    // shortcuts
     const isMac = navigator.platform.toUpperCase().includes('MAC')
-    const mod = isMac ? e.metaKey : e.ctrlKey
+    const mod = isMac ? (e as React.KeyboardEvent).metaKey : (e as React.KeyboardEvent).ctrlKey
     if (mod) {
-      if (e.key.toLowerCase() === 'b') {
-        e.preventDefault(); wrapSelection('**')
-      } else if (e.key.toLowerCase() === 'i') {
-        e.preventDefault(); wrapSelection('*')
-      } else if (e.key.toLowerCase() === 'u') {
-        e.preventDefault(); wrapSelection('__')
-      } else if (e.key === '1') {
-        e.preventDefault(); prefixLine('# ')
-      } else if (e.key === '2') {
-        e.preventDefault(); prefixLine('## ')
-      } else if (e.key === '3') {
-        e.preventDefault(); prefixLine('### ')
-      }
+      if (e.key.toLowerCase() === 'b') { e.preventDefault(); wrapSelection('**') }
+      else if (e.key.toLowerCase() === 'i') { e.preventDefault(); wrapSelection('*') }
+      else if (e.key.toLowerCase() === 'u') { e.preventDefault(); wrapSelection('__') }
+      else if (e.key === '1') { e.preventDefault(); prefixLine(1) }
+      else if (e.key === '2') { e.preventDefault(); prefixLine(2) }
+      else if (e.key === '3') { e.preventDefault(); prefixLine(3) }
     }
   }
 
-  // Insert text at the current cursor position of the textarea
   const insertAtCursor = (text: string) => {
-    const el = textareaRef.current
-    if (!el) {
-      setMessage(prev => prev + text)
-      return
-    }
-    const start = el.selectionStart ?? el.value.length
-    const end = el.selectionEnd ?? el.value.length
-    const newValue = el.value.slice(0, start) + text + el.value.slice(end)
-    setMessage(newValue)
-    // Restore caret after React state update
-    requestAnimationFrame(() => {
-      el.focus()
-      const caret = start + text.length
-      el.setSelectionRange(caret, caret)
-      // Adjust height after insertion
-      el.style.height = 'auto'
-      el.style.height = `${Math.min(el.scrollHeight, 128)}px`
-    })
+    editor?.chain().focus().insertContent(text).run()
   }
 
   // Close picker on outside click or Escape
@@ -260,44 +257,103 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
           </div>
         )}
         <div className="relative">
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onPaste={async (e) => {
-            if (disabled) return
-            const items = e.clipboardData?.items
-            if (!items) return
-            const files: File[] = []
-            for (let i = 0; i < items.length; i++) {
-              const it = items[i]
-              if (it.kind === 'file') {
-                const blob = it.getAsFile()
-                if (blob) files.push(new File([blob], 'pasted-image', { type: blob.type }))
-              }
-            }
-            if (files.length) {
-              e.preventDefault()
-              await handleFilesUpload(files)
-            }
-          }}
-          onKeyPress={handleKeyPress}
-          placeholder={''}
-          disabled={disabled}
-          rows={1}
-          className="chat-textarea input-field pr-20 rounded-2xl transition-all duration-200 resize-none h-12 max-h-32 disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            height: '48px',
-          }}
-          ref={textareaRef}
-          onInput={(e) => {
-            const target = e.target as HTMLTextAreaElement
-            target.style.height = 'auto'
-            const next = Math.max(48, Math.min(target.scrollHeight, 128))
-            target.style.height = `${next}px`
-          }}
-        />
+        {/* Compact formatting toolbar above the input */}
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+              onClick={() => wrapSelection('**')}
+              title="Bold (Cmd/Ctrl + B)"
+              aria-label="Bold"
+            >
+              <Bold size={16} />
+            </button>
+            <button
+              type="button"
+              className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+              onClick={() => wrapSelection('*')}
+              title="Italic (Cmd/Ctrl + I)"
+              aria-label="Italic"
+            >
+              <Italic size={16} />
+            </button>
+            <button
+              type="button"
+              className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+              onClick={() => wrapSelection('__')}
+              title="Underline (Cmd/Ctrl + U)"
+              aria-label="Underline"
+            >
+              <Underline size={16} />
+            </button>
+            <div className="h-5 w-px bg-white/10 mx-1" />
+            <button
+              type="button"
+              className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+              onClick={() => prefixLine(1)}
+              title="Large heading (Cmd/Ctrl + 1)"
+              aria-label="H1"
+            >
+              <Type size={16} />
+              <span className="ml-1 text-xs">H1</span>
+            </button>
+            <button
+              type="button"
+              className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+              onClick={() => prefixLine(2)}
+              title="Medium heading (Cmd/Ctrl + 2)"
+              aria-label="H2"
+            >
+              <Type size={16} />
+              <span className="ml-1 text-xs">H2</span>
+            </button>
+            <button
+              type="button"
+              className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+              onClick={() => prefixLine(3)}
+              title="Small heading (Cmd/Ctrl + 3)"
+              aria-label="H3"
+            >
+              <Type size={16} />
+              <span className="ml-1 text-xs">H3</span>
+            </button>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-pastel-gray/60 transition-colors"
+              aria-label="Upload image"
+              onClick={() => {
+                if (disabled || isUploading) return
+                fileInputRef.current?.click()
+              }}
+              onMouseEnter={() => {
+                if (disabled) return
+                setShowPasteHint(true)
+                setTimeout(() => setShowPasteHint(false), 2500)
+              }}
+              onMouseLeave={() => setShowPasteHint(false)}
+              disabled={disabled || isUploading}
+            >
+              <ImageIcon size={18} />
+            </button>
+            <button
+              type="button"
+              className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
+              aria-label="Choose emoji"
+              onClick={() => setShowPicker(v => !v)}
+            >
+              <Smile size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div onKeyDown={handleKeyDown}>
+          <EditorContent editor={editor!} />
+        </div>
         {/* Locked placeholder overlay */}
-        {(!message || message.length === 0) && (
+        {((!message || message.length === 0) && editor?.isEmpty) && (
           <div
             className="pointer-events-none select-none absolute left-4 right-20 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-400/80 truncate"
             aria-hidden
@@ -328,99 +384,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
           }}
         />
 
-        {/* Action buttons container (stable layout) */}
-        {/* Formatting toolbar */}
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-          <button
-            type="button"
-            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-            onClick={() => wrapSelection('**')}
-            title="Bold (Cmd/Ctrl + B)"
-            aria-label="Bold"
-          >
-            <Bold size={16} />
-          </button>
-          <button
-            type="button"
-            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-            onClick={() => wrapSelection('*')}
-            title="Italic (Cmd/Ctrl + I)"
-            aria-label="Italic"
-          >
-            <Italic size={16} />
-          </button>
-          <button
-            type="button"
-            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-            onClick={() => wrapSelection('__')}
-            title="Underline (Cmd/Ctrl + U)"
-            aria-label="Underline"
-          >
-            <Underline size={16} />
-          </button>
-          <div className="h-5 w-px bg-white/10 mx-1" />
-          <button
-            type="button"
-            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-            onClick={() => prefixLine('# ')}
-            title="Large heading (Cmd/Ctrl + 1)"
-            aria-label="H1"
-          >
-            <Type size={16} />
-            <span className="ml-1 text-xs">H1</span>
-          </button>
-          <button
-            type="button"
-            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-            onClick={() => prefixLine('## ')}
-            title="Medium heading (Cmd/Ctrl + 2)"
-            aria-label="H2"
-          >
-            <Type size={16} />
-            <span className="ml-1 text-xs">H2</span>
-          </button>
-          <button
-            type="button"
-            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-            onClick={() => prefixLine('### ')}
-            title="Small heading (Cmd/Ctrl + 3)"
-            aria-label="H3"
-          >
-            <Type size={16} />
-            <span className="ml-1 text-xs">H3</span>
-          </button>
-          {/* Image upload (paste hint) */}
-          <button
-            type="button"
-            className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-200 hover:bg-pastel-gray/60 transition-colors"
-            aria-label="Upload image"
-            onClick={() => {
-              if (disabled || isUploading) return
-              // Open native file picker for local uploads
-              fileInputRef.current?.click()
-            }}
-            onMouseEnter={() => {
-              if (disabled) return
-              setShowPasteHint(true)
-              // Auto-hide after a short delay to keep UI tidy
-              setTimeout(() => setShowPasteHint(false), 2500)
-            }}
-            onMouseLeave={() => setShowPasteHint(false)}
-            disabled={disabled || isUploading}
-          >
-            <ImageIcon size={18} />
-          </button>
-
-          {/* Emoji button */}
-          <button
-            type="button"
-            className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
-            aria-label="Choose emoji"
-            onClick={() => setShowPicker(v => !v)}
-          >
-            <Smile size={18} />
-          </button>
-        </div>
+        {/* Old absolute overlay removed; toolbar is above now */}
 
         {showPasteHint && (
           <div className="absolute right-0 bottom-14 z-40 select-none">
@@ -436,31 +400,31 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             className="absolute right-0 bottom-14 z-50 drop-shadow-xl"
           >
             <div className="p-2 w-64 bg-pastel-ink rounded-xl border border-pastel-gray">
-              <div className="grid grid-cols-8 gap-1">
-                {commonEmojis.map((em) => (
-                  <button
-                    key={em}
-                    type="button"
-                    className="h-8 w-8 flex items-center justify-center rounded hover:bg-pastel-gray/60 text-lg"
-                    onClick={() => {
-                      insertAtCursor(em)
-                      setShowPicker(false)
-                    }}
-                    aria-label={`Insert ${em}`}
-                  >
-                    {em}
-                  </button>
-                ))}
-              </div>
+            <div className="grid grid-cols-8 gap-1">
+              {commonEmojis.map((em) => (
+                <button
+                  key={em}
+                  type="button"
+                  className="h-8 w-8 flex items-center justify-center rounded hover:bg-pastel-gray/60 text-lg"
+                  onClick={() => {
+                    insertAtCursor(em)
+                    setShowPicker(false)
+                  }}
+                  aria-label={`Insert ${em}`}
+                >
+                  {em}
+                </button>
+              ))}
             </div>
           </div>
+        </div>
         )}
         </div>
       </div>
       
       <motion.button
         type="submit"
-        disabled={!message.trim() || disabled || isUploading}
+        disabled={(editor?.isEmpty ?? true) || disabled || isUploading}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         className="bg-pastel-blue hover:bg-blue-500 text-gray-100 h-12 w-12 rounded-2xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-pastel-blue/60 focus:ring-offset-2 focus:ring-offset-pastel-ink"

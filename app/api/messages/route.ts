@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { publish } from '@/lib/events'
 export const dynamic = 'force-dynamic'
 import { getDatabase } from '@/lib/mongodb'
 import { ChatMessage } from '@/types/chat'
@@ -19,11 +20,11 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const collection = db.collection('messages') as any
 
-    // If afterTs is provided, fetch newer messages (for live updates)
+    // If afterTs is provided, fetch newer/updated messages (for live updates)
     if (afterTs) {
       const afterDate = new Date(afterTs)
       const newer = await collection
-        .find({ timestamp: { $gt: afterDate } })
+        .find({ $or: [ { timestamp: { $gt: afterDate } }, { updatedAt: { $gt: afterDate } } ] })
         .sort({ timestamp: 1 })
         .limit(limit)
         .toArray()
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { username, message, replyTo, countryCode } = body
+    const { username, message, html, replyTo, countryCode } = body
 
     if (!username || !message) {
       return NextResponse.json(
@@ -101,9 +102,11 @@ export async function POST(request: NextRequest) {
     const newMessage: Omit<ChatMessage, '_id'> = {
       username: username.trim(),
       message: message.trim(),
+      html: typeof html === 'string' && html.trim().length ? html.trim() : undefined,
       timestamp,
       timezone,
       countryCode: finalCC,
+      updatedAt: timestamp,
       replyTo: replyTo && typeof replyTo === 'object' ? {
         id: String(replyTo.id || ''),
         username: String(replyTo.username || ''),
@@ -115,11 +118,9 @@ export async function POST(request: NextRequest) {
     const db = await getDatabase()
     const result = await db.collection('messages').insertOne(newMessage)
 
-    const insertedMessage = {
-      _id: result.insertedId.toString(),
-      ...newMessage
-    }
-
+    const created = { _id: result.insertedId.toString(), ...newMessage }
+    // Broadcast creation
+    publish({ type: 'message_created', payload: created })
     // Fire-and-throttle admin email notifications (non-blocking) when sender is not 'arham'
     ;(async () => {
       try {
@@ -160,7 +161,7 @@ export async function POST(request: NextRequest) {
       } catch {}
     })()
 
-    return NextResponse.json(insertedMessage, { status: 201 })
+    return NextResponse.json(created, { status: 201 })
   } catch {
     return NextResponse.json(
       { error: 'Failed to send message' },
@@ -173,7 +174,8 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, username, message } = body as { id?: string; username?: string; message?: string }
+    const { id, username, message, html } = body
+
     if (!id || !username || !message) {
       return NextResponse.json({ error: 'id, username, and message are required' }, { status: 400 })
     }
@@ -197,12 +199,13 @@ export async function PATCH(request: NextRequest) {
     }
     const result = await collection.updateOne(
       { _id: new ObjectId(id) },
-      { $set: { message: message.trim(), editedAt: new Date() } }
+      { $set: { message: message.trim(), html: typeof html === 'string' && html.trim().length ? html : undefined, editedAt: new Date(), updatedAt: new Date() } }
     )
     if (result.matchedCount === 0) {
       return NextResponse.json({ error: 'Failed to update message' }, { status: 500 })
     }
     const updated = await collection.findOne({ _id: new ObjectId(id) })
+    if (updated) publish({ type: 'message_edited', payload: { ...updated, _id: updated._id?.toString?.() || updated._id } })
     return NextResponse.json(updated)
   } catch {
     return NextResponse.json({ error: 'Failed to edit message' }, { status: 500 })

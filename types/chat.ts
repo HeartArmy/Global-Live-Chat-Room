@@ -9,11 +9,13 @@ export interface ChatMessage {
   _id?: string
   username: string
   message: string
+  html?: string
   timestamp: Date
   timezone: string
   countryCode?: string
   replyTo?: ReplyInfo
   editedAt?: Date
+  updatedAt?: Date
   reactions?: ReactionMap
 }
 

@@ -49,15 +49,20 @@ export default function Home() {
     direction: 'append' | 'prepend'
   ): ChatMessageType[] => {
     const keyOf = (m: ChatMessageType) => m._id || `${m.username}|${String(m.timestamp)}|${m.message}`
-    const seen = new Set(existing.map(keyOf))
-    const filtered: ChatMessageType[] = []
+    const indexByKey = new Map(existing.map((m, i) => [keyOf(m), i]))
+    const result = [...existing]
+    const toAdd: ChatMessageType[] = []
     for (const m of additions) {
       const k = keyOf(m)
-      if (seen.has(k)) continue
-      seen.add(k)
-      filtered.push(m)
+      const idx = indexByKey.get(k)
+      if (idx !== undefined) {
+        // Replace existing with updated version (e.g., edited or reactions changed)
+        result[idx] = { ...result[idx], ...m }
+      } else {
+        toAdd.push(m)
+      }
     }
-    return direction === 'append' ? [...existing, ...filtered] : [...filtered, ...existing]
+    return direction === 'append' ? [...result, ...toAdd] : [...toAdd, ...result]
   }
 
   useEffect(() => {
@@ -120,7 +125,18 @@ export default function Home() {
         const newer: ChatMessageType[] = await res.json()
         if (newer.length > 0) {
           setMessages(prev => mergeUnique(prev, newer, 'append'))
-          setLatestTs(String(newer[newer.length - 1].timestamp))
+          // Only advance latestTs if there are truly newer updates (timestamp or updatedAt) beyond the current latestTs
+          setLatestTs(prevTs => {
+            const prevTime = prevTs ? new Date(prevTs).getTime() : 0
+            let maxTs = prevTime
+            for (const m of newer) {
+              const t1 = new Date(String(m.timestamp)).getTime()
+              const t2 = m.updatedAt ? new Date(String(m.updatedAt)).getTime() : t1
+              const t = Math.max(t1, t2)
+              if (t > maxTs) maxTs = t
+            }
+            return maxTs > prevTime ? new Date(maxTs).toISOString() : (prevTs || null)
+          })
         }
       }
     } catch {}
@@ -161,6 +177,45 @@ export default function Home() {
     return () => clearInterval(interval)
   }, [fetchStats, pollNewer])
 
+  // SSE subscription for instant updates
+  useEffect(() => {
+    const es = new EventSource('/api/events')
+    const handleMerge = (incoming: ChatMessageType) => {
+      setMessages(prev => {
+        const merged = mergeUnique(prev, [incoming], 'append')
+        return merged
+      })
+      setLatestTs(prevTs => {
+        const prevTime = prevTs ? new Date(prevTs).getTime() : 0
+        const t1 = new Date(String(incoming.timestamp)).getTime()
+        const t2 = incoming.updatedAt ? new Date(String(incoming.updatedAt)).getTime() : t1
+        const maxTs = Math.max(prevTime, t1, t2)
+        return maxTs > prevTime ? new Date(maxTs).toISOString() : (prevTs || null)
+      })
+    }
+    const onCreated = (ev: MessageEvent) => {
+      try { handleMerge(JSON.parse(ev.data)) } catch {}
+    }
+    const onEdited = (ev: MessageEvent) => {
+      try { handleMerge(JSON.parse(ev.data)) } catch {}
+    }
+    const onUpdated = (ev: MessageEvent) => {
+      try { handleMerge(JSON.parse(ev.data)) } catch {}
+    }
+    es.addEventListener('message_created', onCreated)
+    es.addEventListener('message_edited', onEdited)
+    es.addEventListener('message_updated', onUpdated)
+    es.onerror = () => {
+      // let browser auto-reconnect
+    }
+    return () => {
+      es.removeEventListener('message_created', onCreated)
+      es.removeEventListener('message_edited', onEdited)
+      es.removeEventListener('message_updated', onUpdated)
+      es.close()
+    }
+  }, [])
+
   // Fetch older messages before current oldestTs and prepend, preserving scroll position
   const loadOlder = async () => {
     if (isLoadingOlder || !hasMoreOlder || !oldestTs) return
@@ -193,7 +248,7 @@ export default function Home() {
 
   // (moved pollNewer and fetchStats above)
 
-  const handleSendMessage = async (message: string, reply?: ReplyInfo) => {
+  const handleSendMessage = async (message: string, reply?: ReplyInfo, html?: string) => {
     if (!user || isSending) return
 
     setIsSending(true)
@@ -216,6 +271,7 @@ export default function Home() {
         _id: tempId,
         username: user.username,
         message,
+        html: html && html.trim().length ? html : undefined,
         timestamp: new Date(),
         timezone: tz,
         countryCode: cc || undefined,
@@ -232,6 +288,7 @@ export default function Home() {
         body: JSON.stringify({
           username: user.username,
           message,
+          html: html && html.trim().length ? html : undefined,
           countryCode: cc || undefined,
           replyTo: reply || undefined,
         }),
