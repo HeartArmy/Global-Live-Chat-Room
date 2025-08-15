@@ -27,6 +27,8 @@ export default function Home() {
   const [showScrollToLatest, setShowScrollToLatest] = useState(false)
   const didInitialScroll = useRef(false)
   const [countryCode, setCountryCode] = useState<string | null>(null)
+  // Rate-limit top loading
+  const lastOlderLoadAtRef = useRef(0)
   // Pagination state
   const [oldestTs, setOldestTs] = useState<string | null>(null)
   const [latestTs, setLatestTs] = useState<string | null>(null)
@@ -224,16 +226,19 @@ export default function Home() {
         } else {
           setMessages(prev => mergeUnique(prev, older, 'prepend'))
           setOldestTs(older[0]?.timestamp ? String(older[0].timestamp) : oldestTs)
-          // Preserve the viewport position after DOM grows
+          // Preserve the viewport position after DOM grows (ensure after React commit)
           requestAnimationFrame(() => {
-            const newScrollHeight = container.scrollHeight
-            container.scrollTop = newScrollHeight - prevScrollHeight + container.scrollTop
+            requestAnimationFrame(() => {
+              const newScrollHeight = container.scrollHeight
+              container.scrollTop = newScrollHeight - prevScrollHeight + container.scrollTop
+            })
           })
         }
       }
     } catch {}
     finally {
       setIsLoadingOlder(false)
+      lastOlderLoadAtRef.current = Date.now()
     }
   }
 
@@ -398,7 +403,11 @@ export default function Home() {
             // If near the top, load older messages
             const topThreshold = TOP_THRESHOLD
             if (el.scrollTop <= topThreshold) {
-              loadOlder()
+              const now = Date.now()
+              if (now - lastOlderLoadAtRef.current > 800 && !isLoadingOlder && hasMoreOlder && oldestTs) {
+                lastOlderLoadAtRef.current = now
+                loadOlder()
+              }
             }
           }}
         >

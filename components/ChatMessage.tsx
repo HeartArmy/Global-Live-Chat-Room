@@ -58,12 +58,12 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
     const linkify = (s: string) => s
-      // http(s) links, keep trailing punctuation out of the link
-      .replace(/(^|\s)(https?:\/\/[^^\s<>()]+?)([).,!?:;]?)(?=\s|$)/gi, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>$3')
+      // http(s) links
+      .replace(/(^|[\s(])((?:https?:\/\/)[^\s<>()]+?)(?=$|[\s).,!?;:])/gi, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>')
       // www. links
-      .replace(/(^|\s)(www\.[^\s<>()]+?)([).,!?:;]?)(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>$3')
-      // bare domains like google.com and optional path
-      .replace(/(^|\s)(((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,})(?:\/[^^\s<>()]+?)?)([).,!?:;]?)(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>$4')
+      .replace(/(^|[\s(])((?:www\.)[^\s<>()]+?)(?=$|[\s).,!?;:])/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>')
+      // bare domains like google.com with optional path
+      .replace(/(^|[\s(])(((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,})(?:\/[^^\s<>()]+?)?)(?=$|[\s).,!?;:])/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2</a>')
     const md = (s: string) => {
       // images ![alt](url)
       s = s.replace(/!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g, (_m, alt, url) => `<img src="${url}" alt="${alt}" class="rounded-xl max-w-[280px] h-auto inline-block align-middle" />`)
@@ -349,10 +349,10 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                   dangerouslySetInnerHTML={{ __html: sanitizeHtml((html || ''))
                     // Images responsive
                     .replace(/<img\s/gi, '<img class="rounded-xl max-w-[70vw] sm:max-w-[280px] h-auto inline-block align-middle" ')
-                    // Linkify http(s), www., and bare domains (preserve trailing punctuation)
-                    .replace(/(^|\s)(https?:\/\/[^^\s<>()]+?)([).,!?:;]?)(?=\s|$)/gi, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>$3')
-                    .replace(/(^|\s)(www\.[^\s<>()]+?)([).,!?:;]?)(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>$3')
-                    .replace(/(^|\s)(((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,})(?:\/[^^\s<>()]+?)?)([).,!?:;]?)(?=\s|$)/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>$4')
+                    // Linkify http(s), www., and bare domains
+                    .replace(/(^|[\s(])((?:https?:\/\/)[^\s<>()]+?)(?=$|[\s).,!?;:])/gi, '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>')
+                    .replace(/(^|[\s(])((?:www\.)[^\s<>()]+?)(?=$|[\s).,!?;:])/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>')
+                    .replace(/(^|[\s(])(((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,})(?:\/[^^\s<>()]+?)?)(?=$|[\s).,!?;:])/gi, '$1<a href="http://$2" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">$2<\/a>')
                     // Headings sizing
                     .replace(/<h1(\s|>)/gi, '<h1 class="text-2xl font-semibold"$1')
                     .replace(/<h2(\s|>)/gi, '<h2 class="text-base font-medium"$1')
