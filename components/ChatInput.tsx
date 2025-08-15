@@ -7,7 +7,7 @@ import type { ReactQuillProps, UnprivilegedEditor } from 'react-quill'
 import type Quill from 'quill'
 import type React from 'react'
 import { motion } from 'framer-motion'
-import { Send, Smile, Image as ImageIcon, X, Bold, Italic, Underline, Type } from 'lucide-react'
+import { Send, Smile, Image as ImageIcon, X, Bold, Italic, Underline, Type, Link2 } from 'lucide-react'
 
 import { ReplyInfo } from '@/types/chat'
 
@@ -44,6 +44,10 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const [showPicker, setShowPicker] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [showPasteHint, setShowPasteHint] = useState(false)
+  const [showLinkPopover, setShowLinkPopover] = useState(false)
+  const [linkUrl, setLinkUrl] = useState('')
+  const [linkText, setLinkText] = useState('')
+  const [linkError, setLinkError] = useState<string | null>(null)
   const quillRef = useRef<ReactQuillType | null>(null)
   const pickerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -66,6 +70,40 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       return false
     }
     return true
+  }
+
+  // Helpers for link popover
+  const sanitizeAndValidateUrl = (raw: string): { ok: boolean; href?: string; error?: string } => {
+    const trimmed = raw.trim()
+    if (!trimmed) return { ok: false, error: 'Enter a URL' }
+    // Disallow dangerous schemes
+    if (/^\s*(javascript:|data:)/i.test(trimmed)) return { ok: false, error: 'Unsupported URL scheme' }
+    // Require a dot in the hostname (simple TLD check)
+    const withProto = /^(https?:)?\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+    try {
+      const u = new URL(withProto)
+      if (!/\./.test(u.hostname)) return { ok: false, error: 'URL must include a domain (e.g., example.com)' }
+      return { ok: true, href: u.toString() }
+    } catch {
+      return { ok: false, error: 'Invalid URL' }
+    }
+  }
+
+  const insertLinkIntoEditor = (href: string, display: string) => {
+    const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+    if (!q) return
+    const sel = q.getSelection(true)
+    const text = display && display.trim().length ? display : href
+    if (sel && sel.length > 0) {
+      // Format existing selection as link
+      q.format('link', href)
+    } else {
+      const index = sel ? sel.index : q.getLength()
+      q.insertText(index, text, 'user')
+      q.formatText(index, text.length, 'link', href, 'user')
+      q.setSelection(index + text.length, 0, 'user')
+    }
+    q.focus()
   }
 
   // Quill modules and formats
@@ -118,6 +156,23 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             q?.history?.redo?.()
             return false
           }
+        },
+        // Insert Link: Cmd/Ctrl + K opens link popover
+        insertLink: {
+          key: 'K',
+          shortKey: true,
+          shiftKey: false,
+          handler: () => {
+            if (disabled) return false
+            const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+            const sel = q?.getSelection()
+            const selectedText = sel && sel.length ? q?.getText(sel.index, sel.length) || '' : ''
+            setLinkText((selectedText || '').trim())
+            setLinkUrl('')
+            setLinkError(null)
+            setShowLinkPopover(true)
+            return false
+          }
         }
       }
     }
@@ -127,7 +182,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const handleQuillChange = (value: string, _delta: unknown, _source: unknown, editor: UnprivilegedEditor) => {
     setHtml(value)
     setPlainText(editor.getText())
-    // No automatic hyperlinking; '/url <value>' command is handled on submit
+    // No automatic hyperlinking; links are inserted only via the Insert Link dialog (⌘K / Ctrl+K)
   }
 
   const handleFilesUpload = async (files: File[]) => {
@@ -173,16 +228,6 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     e.preventDefault()
     const text = (plainText || '').trim()
     let contentHtml = html || ''
-    // Command mode: '/url <value>' converts to a clickable link only when sending
-    if (text.toLowerCase().startsWith('/url')) {
-      const arg = text.slice(4).trim()
-      if (arg.length > 0) {
-        const trimmed = arg.replace(/[),.!?;:]+$/, '')
-        const href = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`
-        const safeText = trimmed
-        contentHtml = `<a href="${href}" target="_blank" rel="noopener noreferrer">${safeText}</a>`
-      }
-    }
     const hasContent = text.length > 0 || /<img\b/i.test(contentHtml)
     if (!disabled && hasContent) {
       onSendMessage(text || ' ', replyTo, contentHtml)
@@ -276,6 +321,53 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                 )}
                 <span className="truncate">{replyTo.preview}</span>
               </div>
+        {/* Insert Link Popover */}
+        {showLinkPopover && (
+          <div className="absolute z-50 left-0 right-0 -top-2 translate-y-[-100%] flex justify-start">
+            <div className="w-full max-w-sm rounded-xl border border-pastel-gray bg-pastel-ink shadow-xl p-3">
+              <div className="mb-2 text-xs font-medium text-gray-200">Insert link</div>
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={linkUrl}
+                  onChange={(e) => { setLinkUrl(e.target.value); setLinkError(null) }}
+                  placeholder="URL (e.g., https://example.com)"
+                  className="w-full rounded-md bg-black/20 border border-white/10 px-2 py-1 text-xs text-gray-100 placeholder:text-gray-400"
+                  autoFocus
+                />
+                <input
+                  type="text"
+                  value={linkText}
+                  onChange={(e) => setLinkText(e.target.value)}
+                  placeholder="Text to display (optional)"
+                  className="w-full rounded-md bg-black/20 border border-white/10 px-2 py-1 text-xs text-gray-100 placeholder:text-gray-400"
+                />
+                {linkError && <div className="text-[10px] text-red-300">{linkError}</div>}
+                <div className="flex items-center justify-end gap-2 mt-1">
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded-md text-xs bg-gray-600 hover:bg-gray-500 text-white"
+                    onClick={() => setShowLinkPopover(false)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="px-2 py-1 rounded-md text-xs bg-pastel-blue hover:bg-blue-500 text-white"
+                    onClick={() => {
+                      const res = sanitizeAndValidateUrl(linkUrl)
+                      if (!res.ok || !res.href) { setLinkError(res.error || 'Invalid URL'); return }
+                      insertLinkIntoEditor(res.href, linkText)
+                      setShowLinkPopover(false)
+                    }}
+                  >
+                    Insert
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
             </div>
             {onCancelReply && (
               <button
@@ -325,6 +417,27 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                 aria-label="Underline"
               >
                 <Underline size={16} />
+              </button>
+            )}
+            {(
+              <button
+                type="button"
+                className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+                onClick={() => {
+                  if (disabled) return
+                  const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+                  const sel = q?.getSelection()
+                  const selectedText = sel && sel.length ? q?.getText(sel.index, sel.length) || '' : ''
+                  setLinkText((selectedText || '').trim())
+                  setLinkUrl('')
+                  setLinkError(null)
+                  setShowLinkPopover(true)
+                }}
+                title="Insert link (⌘K / Ctrl+K)"
+                aria-label="Insert link"
+              >
+                <Link2 size={16} />
+                <span className="ml-1 text-xs hidden sm:inline">Link</span>
               </button>
             )}
             <div className="h-5 w-px bg-white/10 mx-1" />
@@ -406,6 +519,9 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             </button>
           </div>
         </div>
+        <div className="mb-1 text-[10px] text-gray-400 select-none">
+          Tip: Insert a link with ⌘K / Ctrl+K
+        </div>
         {/* Quill editor */}
         <div
           onPaste={(event) => {
@@ -436,12 +552,6 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             modules={modules}
             className="rounded-2xl min-h-12 max-h-32 overflow-y-auto px-4 py-3 text-xs bg-transparent w-full"
           />
-          {/* Quick hint for URL command */}
-          {plainText.trimStart().toLowerCase().startsWith('/url') ? (
-            <div className="absolute right-2 -bottom-5 text-[10px] text-gray-300 opacity-80 select-none">
-              Type: /url your-link-here (no auto-linking; only this command makes a clickable link)
-            </div>
-          ) : null}
         </div>
         {/* Removed file chooser: paste-only flow */}
         {/* Hidden file input for manual uploads */}

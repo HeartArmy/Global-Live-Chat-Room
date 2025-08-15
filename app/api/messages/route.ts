@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const limitParam = parseInt(searchParams.get('limit') || '50', 10)
-    const limit = Math.min(Math.max(isNaN(limitParam) ? 50 : limitParam, 1), 200)
+    const limit = Math.min(Math.max(isNaN(limitParam) ? 50 : limitParam, 1), 500)
     const beforeTs = searchParams.get('beforeTs')
     const afterTs = searchParams.get('afterTs')
 

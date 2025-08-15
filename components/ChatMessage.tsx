@@ -341,7 +341,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                   dangerouslySetInnerHTML={{ __html: sanitizeHtml((html || ''))
                     // Images responsive
                     .replace(/<img\s/gi, '<img class="rounded-xl max-w-[70vw] sm:max-w-[280px] h-auto inline-block align-middle" ')
-                    // Ensure any existing <a> tags from Quill get safe attrs and styling
+                    // Ensure anchors are safe and styled
                     .replace(/<a\s+href="([^"]+)"[^>]*>/gi, '<a href="$1" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">')
                     // Headings sizing
                     .replace(/<h1(\s|>)/gi, '<h1 class="text-2xl font-semibold"$1')

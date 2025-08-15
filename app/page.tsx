@@ -11,7 +11,7 @@ import { ChatMessage as ChatMessageType, User, ReplyInfo } from '@/types/chat'
 
 export default function Home() {
   // Tunables
-  const CHUNK_SIZE = 40
+  const CHUNK_SIZE = 500
   const BOTTOM_THRESHOLD = 24 // px from bottom to keep auto-follow
   const [user, setUser] = useState<User | null>(null)
   const [messages, setMessages] = useState<ChatMessageType[]>([])
@@ -43,6 +43,12 @@ export default function Home() {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
+  const scrollToBottomInstant = () => {
+    const container = messagesContainerRef.current
+    if (!container) return
+    // Jump instantly to bottom without animation
+    container.scrollTop = container.scrollHeight
+  }
 
   // Helper: merge messages de-duplicated by _id (fallback to composite key)
   const mergeUnique = (
@@ -68,12 +74,12 @@ export default function Home() {
   }
 
   useEffect(() => {
-    // Initial auto-scroll once when messages first load
+    // Initial jump to latest once when messages first load (no visible scroll animation)
     if (!didInitialScroll.current && messages.length > 0) {
       didInitialScroll.current = true
-      scrollToBottom()
+      scrollToBottomInstant()
     } else if (isNearBottom && !autoScrollLocked) {
-      // Keep following the bottom when near it and not locked
+      // Keep following the bottom when near it and not locked (smooth)
       scrollToBottom()
     }
   }, [messages, isNearBottom, autoScrollLocked])
@@ -350,12 +356,10 @@ export default function Home() {
 
   const handleAuth = (authenticatedUser: User) => {
     setUser(authenticatedUser)
-    // On login, jump to latest and unlock autoscroll
+    // Do not force a scroll on login; initial render already positioned at latest
     requestAnimationFrame(() => {
-      didInitialScroll.current = true
       setIsNearBottom(true)
       setAutoScrollLocked(false)
-      scrollToBottom()
     })
   }
 
