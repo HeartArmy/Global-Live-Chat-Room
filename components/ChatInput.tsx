@@ -71,6 +71,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   // Quill modules and formats
   const modules: ReactQuillProps['modules'] = {
     toolbar: false,
+    history: { delay: 500, maxStack: 200, userOnly: true },
     keyboard: {
       bindings: {
         handleEnter: {
@@ -79,6 +80,42 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
           handler: () => {
             const form = document.getElementById('chat-input-form') as HTMLFormElement | null
             form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+            return false
+          }
+        },
+        // Undo Cmd/Ctrl+Z
+        undo: {
+          key: 'Z',
+          shortKey: true,
+          shiftKey: false,
+          handler: () => {
+            const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+            // @ts-expect-error history module
+            q?.history?.undo?.()
+            return false
+          }
+        },
+        // Redo Cmd/Ctrl+Shift+Z
+        redo: {
+          key: 'Z',
+          shortKey: true,
+          shiftKey: true,
+          handler: () => {
+            const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+            // @ts-expect-error history module
+            q?.history?.redo?.()
+            return false
+          }
+        },
+        // Redo Ctrl+Y (Windows/Linux)
+        redoCtrlY: {
+          key: 'Y',
+          shortKey: true,
+          shiftKey: false,
+          handler: () => {
+            const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+            // @ts-expect-error history module
+            q?.history?.redo?.()
             return false
           }
         }
@@ -153,12 +190,17 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   }
 
   // Keyboard shortcuts for formatting
-  const applyFormat = (fmt: 'bold' | 'italic' | 'underline' | 'header1' | 'header2' | 'header3') => {
+  const applyFormat = (fmt: 'bold' | 'italic' | 'underline' | 'header0' | 'header1' | 'header2' | 'header3') => {
     const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
     if (!q) return
     if (fmt === 'bold' || fmt === 'italic' || fmt === 'underline') {
       q.format(fmt, !q.getFormat()[fmt])
     } else {
+      if (fmt === 'header0') {
+        q.format('header', false)
+        q.focus()
+        return
+      }
       const level = fmt === 'header1' ? 1 : fmt === 'header2' ? 2 : 3
       const current = q.getFormat().header
       q.format('header', current === level ? false : level)
@@ -275,6 +317,18 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
               </button>
             )}
             <div className="h-5 w-px bg-white/10 mx-1" />
+            {(
+              <button
+                type="button"
+                className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+                onClick={() => applyFormat('header0')}
+                title="Normal size"
+                aria-label="Normal"
+              >
+                <Type size={16} />
+                <span className="ml-1 text-xs">Normal</span>
+              </button>
+            )}
             {(
               <button
                 type="button"

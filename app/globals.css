@@ -117,3 +117,23 @@
     background: linear-gradient(180deg, #6a6d7a, #474a52);
   }
 }
+
+/* Quill editor tweaks */
+/* Placeholder legibility */
+.quill-wrapper .ql-editor.ql-blank::before {
+  color: rgba(255, 255, 255, 0.7); /* white-ish for dark background */
+  opacity: 0.8; /* ensure visible */
+}
+
+/* Ensure images inserted in the input don't blow up the layout */
+.quill-wrapper .ql-editor img {
+  max-width: 70vw;       /* responsive on small screens */
+  max-height: 180px;     /* keep input usable */
+  height: auto;
+  border-radius: 0.75rem; /* rounded-xl */
+}
+
+/* Bubble theme content readability inside input */
+.quill-wrapper .ql-editor {
+  color: #e5e7eb; /* text-gray-200 in dark */
+}

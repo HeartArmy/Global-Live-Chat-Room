@@ -2,14 +2,19 @@
 
 import { useMemo, useRef, useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
+import type ReactQuillType from 'react-quill'
 import type { ReactQuillProps, UnprivilegedEditor } from 'react-quill'
+import type Quill from 'quill'
 import { motion } from 'framer-motion'
 import { ChatMessage as ChatMessageType, ReplyInfo, ReactionMap } from '@/types/chat'
 import { CornerUpRight, Pencil, Check, X } from 'lucide-react'
 import { formatTimestamp, formatAbsolute } from '@/utils/timezone'
 import { countryCodeToFlag } from '@/utils/geo'
 
-const ReactQuill = dynamic<ReactQuillProps>(() => import('react-quill-new'), { ssr: false })
+const ReactQuill = dynamic(
+  () => import('react-quill-new'),
+  { ssr: false }
+) as unknown as React.ForwardRefExoticComponent<ReactQuillProps & React.RefAttributes<ReactQuillType>>
 
 interface ChatMessageProps {
   message: ChatMessageType
@@ -32,6 +37,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
   const savingRef = useRef(false)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [topEmojis, setTopEmojis] = useState<string[] | null>(null)
+  const editQuillRef = useRef<ReactQuillType | null>(null)
 
   // Only treat as a standalone image message if the entire content is an image markdown or a direct image URL
   const imageMarkdownMatch = text.match(/^\s*!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)\s*$/)
@@ -183,7 +189,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
           <div className={`relative chat-bubble ${isCurrentUser ? 'chat-bubble-user' : 'chat-bubble-other'}`}>
             {/* Quick reactions on hover: left of the bubble */}
             {onToggleReaction && message._id && (
-              <div className="pointer-events-none absolute top-1/2 -left-2 -translate-x-full -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="hidden md:block pointer-events-none absolute top-1/2 -left-2 -translate-x-full -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <div className="pointer-events-auto inline-flex items-center gap-1 bg-black/10 dark:bg-white/10 rounded-full px-1 py-0.5">
                   {EMOJIS.map((em) => (
                     <button
@@ -229,13 +235,54 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
             {isEditing ? (
               <div className="flex flex-col gap-2">
                 <ReactQuill
+                  ref={editQuillRef as any}
                   theme="bubble"
                   value={editHtml ?? html ?? draft}
                   onChange={(value: string, _delta: unknown, _source: unknown, editor: UnprivilegedEditor) => {
                     setEditHtml(value)
                     setEditPlain(editor.getText())
                   }}
-                  modules={{ toolbar: false }}
+                  modules={{
+                    toolbar: false,
+                    history: { delay: 500, maxStack: 200, userOnly: true },
+                    keyboard: {
+                      bindings: {
+                        undo: {
+                          key: 'Z',
+                          shortKey: true,
+                          shiftKey: false,
+                          handler: () => {
+                            const q: Quill | null = editQuillRef.current && (editQuillRef.current as unknown as ReactQuillType).getEditor ? (editQuillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+                            // @ts-ignore runtime module exists
+                            q?.history?.undo?.()
+                            return false
+                          }
+                        },
+                        redo: {
+                          key: 'Z',
+                          shortKey: true,
+                          shiftKey: true,
+                          handler: () => {
+                            const q: Quill | null = editQuillRef.current && (editQuillRef.current as unknown as ReactQuillType).getEditor ? (editQuillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+                            // @ts-ignore runtime module exists
+                            q?.history?.redo?.()
+                            return false
+                          }
+                        },
+                        redoCtrlY: {
+                          key: 'Y',
+                          shortKey: true,
+                          shiftKey: false,
+                          handler: () => {
+                            const q: Quill | null = editQuillRef.current && (editQuillRef.current as unknown as ReactQuillType).getEditor ? (editQuillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+                            // @ts-ignore runtime module exists
+                            q?.history?.redo?.()
+                            return false
+                          }
+                        }
+                      }
+                    }
+                  }}
                   className="rounded-md bg-transparent border border-white/20 p-2 text-sm"
                 />
                 <div className="flex gap-2 text-xs">
@@ -389,8 +436,8 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                   {/* Quick reactions moved to bubble-left; keep + for more here */}
 
                   {showEmojiPicker && (
-                    <div className="absolute z-50 bottom-6 right-0 p-2 w-64 bg-pastel-ink rounded-xl border border-pastel-gray drop-shadow-xl">
-                      <div className="grid grid-cols-8 gap-1">
+                    <div className="absolute z-50 md:bottom-6 md:right-0 md:left-auto md:translate-x-0 left-1/2 -translate-x-1/2 bottom-12 p-2 w-[90vw] md:w-64 bg-pastel-ink rounded-xl border border-pastel-gray drop-shadow-xl overflow-hidden">
+                      <div className="grid grid-cols-7 md:grid-cols-8 gap-1">
                         {displayedEmojis.map((em) => {
                           const count = (message.reactions?.[em] || []).length
                           const mine = (message.reactions?.[em] || []).includes(currentUsername || '')

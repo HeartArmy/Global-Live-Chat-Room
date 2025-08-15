@@ -289,8 +289,11 @@ export default function Home() {
 
       if (response.ok) {
         const newMessage = await response.json()
-        // Reconcile: replace temp with real message
-        setMessages(prev => prev.map(m => (m._id === tempId ? { ...m, ...newMessage } : m)))
+        // Reconcile: remove any duplicate with same _id (from SSE/poll), drop temp, then add one canonical
+        setMessages(prev => {
+          const filtered = prev.filter(m => m._id !== tempId && m._id !== newMessage._id)
+          return mergeUnique(filtered, [newMessage], 'append')
+        })
         if (newMessage?.timestamp) setLatestTs(String(newMessage.timestamp))
         setReplyTo(undefined)
         fetchStats() // Update stats after sending
@@ -441,7 +444,7 @@ export default function Home() {
             <AnimatePresence>
               {messages.map((message, index) => (
                 <ChatMessage
-                  key={message._id || index}
+                  key={message._id || `${message.username}-${String(message.timestamp)}`}
                   message={message}
                   currentUsername={user?.username}
                   currentUserCountry={countryCode || undefined}

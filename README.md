@@ -163,6 +163,7 @@ Have suggestions or feedback? Send them to **arhampersonal at icloud dot com**
 
 - **Flags in development**: Local/dev environments may not include geo headers, so `/api/geo` can return `null`. In production (e.g., Vercel), flags are consistently populated. If desired, add a simple dev-only country picker for testing.
 - **Privacy**: Only 2-letter country codes are stored alongside messages; no PII is stored.
+ - **React 19 + Quill**: We use the `react-quill-new` package (a maintained fork of `react-quill`) because React 19 removed `findDOMNode`, which `react-quill` relied on and would crash at runtime. See `components/ChatInput.tsx` and `components/ChatMessage.tsx` where the editor is dynamically imported from `react-quill-new`. A small TS shim exists at `types/react-quill-new.d.ts` to map its types to `react-quill`.
 
 ## 🛡️ Privacy & Security
 
