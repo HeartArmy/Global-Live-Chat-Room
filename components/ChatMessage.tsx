@@ -231,9 +231,12 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
               />
             ) : (
               html && html.trim().length > 0 ? (
-                <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: html }} />
+                <div
+                  className="text-sm leading-relaxed break-words overflow-x-hidden"
+                  dangerouslySetInnerHTML={{ __html: (html || '').replace(/<img\s/gi, '<img class="rounded-xl max-w-[70vw] sm:max-w-[280px] h-auto inline-block align-middle" ') }}
+                />
               ) : (
-                <p className="text-sm leading-relaxed" dangerouslySetInnerHTML={renderHtml} />
+                <p className="text-sm leading-relaxed break-words overflow-x-hidden" dangerouslySetInnerHTML={renderHtml} />
               )
             )}
             {/* Metadata row inside bubble */}
@@ -287,6 +290,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                   {/* Show only emojis that currently have votes */}
                   {Object.entries(message.reactions || {})
                     .filter(([, users]) => (users || []).length > 0)
+                    .sort(([a], [b]) => a.localeCompare(b))
                     .map(([em, users]) => {
                       const count = users.length
                       const mine = users.includes(currentUsername || '')
@@ -309,8 +313,9 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                       )
                     })}
 
-                  {/* Quick reactions appear on hover */}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 ml-1">
+                  {/* Quick reactions appear on hover, positioned just below the timestamp row */}
+                  <div className="pointer-events-none absolute left-0 top-full mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="pointer-events-auto inline-flex items-center gap-1 bg-black/10 dark:bg-white/10 rounded-full px-1 py-0.5">
                     {EMOJIS.map((em) => (
                       <button
                         key={em}
@@ -335,6 +340,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                     >
                       +
                     </button>
+                    </div>
                   </div>
 
                   {showEmojiPicker && (

@@ -95,6 +95,27 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         }
         return false
       },
+      handleKeyDown: (_view: EditorView, event: KeyboardEvent) => {
+        // Submit on Enter, newline on Shift+Enter
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault()
+          // Programmatically submit
+          const form = document.getElementById('chat-input-form') as HTMLFormElement | null
+          form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+          return true
+        }
+        const isMac = navigator.userAgent.includes('Mac')
+        const mod = isMac ? event.metaKey : event.ctrlKey
+        if (!mod) return false
+        const key = event.key.toLowerCase()
+        if (key === 'b') { event.preventDefault(); editor?.chain().focus().toggleBold().run(); return true }
+        if (key === 'i') { event.preventDefault(); editor?.chain().focus().toggleItalic().run(); return true }
+        if (key === 'u') { event.preventDefault(); editor?.chain().focus().toggleUnderline().run(); return true }
+        if (key === '1') { event.preventDefault(); editor?.chain().focus().toggleHeading({ level: 1 }).run(); return true }
+        if (key === '2') { event.preventDefault(); editor?.chain().focus().toggleHeading({ level: 2 }).run(); return true }
+        if (key === '3') { event.preventDefault(); editor?.chain().focus().toggleHeading({ level: 3 }).run(); return true }
+        return false
+      },
     },
     onUpdate: ({ editor }: { editor: Editor }) => {
       // Keep a plain-text shadow for the optimistic temp message
@@ -153,8 +174,9 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     e.preventDefault()
     const html = editor?.getHTML() || ''
     const text = editor?.getText().trim() || ''
-    if (text && !disabled) {
-      onSendMessage(text, replyTo, html)
+    const hasContent = !!editor && !editor.isEmpty
+    if (!disabled && (text.length > 0 || hasContent)) {
+      onSendMessage(text || ' ', replyTo, html)
       setMessage('')
       editor?.commands.clearContent(true)
       if (onCancelReply) onCancelReply()
@@ -224,6 +246,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
 
   return (
     <motion.form
+      id="chat-input-form"
       onSubmit={handleSubmit}
       className="flex items-center gap-3 p-4 glass-effect border-t border-pastel-gray/50"
       initial={{ y: 50, opacity: 0 }}
@@ -260,64 +283,76 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         {/* Compact formatting toolbar above the input */}
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-              onClick={() => wrapSelection('**')}
-              title="Bold (Cmd/Ctrl + B)"
-              aria-label="Bold"
-            >
-              <Bold size={16} />
-            </button>
-            <button
-              type="button"
-              className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-              onClick={() => wrapSelection('*')}
-              title="Italic (Cmd/Ctrl + I)"
-              aria-label="Italic"
-            >
-              <Italic size={16} />
-            </button>
-            <button
-              type="button"
-              className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-              onClick={() => wrapSelection('__')}
-              title="Underline (Cmd/Ctrl + U)"
-              aria-label="Underline"
-            >
-              <Underline size={16} />
-            </button>
+            {editor && (
+              <button
+                type="button"
+                className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+                onClick={() => editor?.chain().focus().toggleBold().run()}
+                title="Bold (⌘B / Ctrl+B)"
+                aria-label="Bold"
+              >
+                <Bold size={16} />
+              </button>
+            )}
+            {editor && (
+              <button
+                type="button"
+                className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+                onClick={() => editor?.chain().focus().toggleItalic().run()}
+                title="Italic (⌘I / Ctrl+I)"
+                aria-label="Italic"
+              >
+                <Italic size={16} />
+              </button>
+            )}
+            {editor && (
+              <button
+                type="button"
+                className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+                onClick={() => editor?.chain().focus().toggleUnderline().run()}
+                title="Underline (⌘U / Ctrl+U)"
+                aria-label="Underline"
+              >
+                <Underline size={16} />
+              </button>
+            )}
             <div className="h-5 w-px bg-white/10 mx-1" />
-            <button
-              type="button"
-              className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-              onClick={() => prefixLine(1)}
-              title="Large heading (Cmd/Ctrl + 1)"
-              aria-label="H1"
-            >
-              <Type size={16} />
-              <span className="ml-1 text-xs">H1</span>
-            </button>
-            <button
-              type="button"
-              className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-              onClick={() => prefixLine(2)}
-              title="Medium heading (Cmd/Ctrl + 2)"
-              aria-label="H2"
-            >
-              <Type size={16} />
-              <span className="ml-1 text-xs">H2</span>
-            </button>
-            <button
-              type="button"
-              className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
-              onClick={() => prefixLine(3)}
-              title="Small heading (Cmd/Ctrl + 3)"
-              aria-label="H3"
-            >
-              <Type size={16} />
-              <span className="ml-1 text-xs">H3</span>
-            </button>
+            {editor && (
+              <button
+                type="button"
+                className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+                onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
+                title="Heading 1 (⌘1 / Ctrl+1)"
+                aria-label="H1"
+              >
+                <Type size={16} />
+                <span className="ml-1 text-xs">H1</span>
+              </button>
+            )}
+            {editor && (
+              <button
+                type="button"
+                className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+                onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                title="Heading 2 (⌘2 / Ctrl+2)"
+                aria-label="H2"
+              >
+                <Type size={16} />
+                <span className="ml-1 text-xs">H2</span>
+              </button>
+            )}
+            {editor && (
+              <button
+                type="button"
+                className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10"
+                onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
+                title="Heading 3 (⌘3 / Ctrl+3)"
+                aria-label="H3"
+              >
+                <Type size={16} />
+                <span className="ml-1 text-xs">H3</span>
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -355,7 +390,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
         {/* Locked placeholder overlay */}
         {((!message || message.length === 0) && editor?.isEmpty) && (
           <div
-            className="pointer-events-none select-none absolute left-4 right-20 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-400/80 truncate"
+            className="pointer-events-none select-none absolute left-4 right-20 inset-y-0 flex items-center text-gray-400 dark:text-gray-400/80 truncate"
             aria-hidden
           >
             {currentPlaceholder}

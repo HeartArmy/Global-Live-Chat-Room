@@ -78,19 +78,8 @@ export default function Home() {
 
   // Toggle the visibility of the "Scroll to latest" chip based on position and new messages
   useEffect(() => {
-    if (isNearBottom) {
-      // If user is at/near bottom, hide the chip
-      setShowScrollToLatest(false)
-    }
+    setShowScrollToLatest(!isNearBottom)
   }, [isNearBottom])
-
-  useEffect(() => {
-    // When new messages arrive and the user is NOT near bottom, prompt with the chip
-    if (!isNearBottom && messages.length > 0) {
-      setShowScrollToLatest(true)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length])
 
   // (mount effect moved below, after fetchStats/pollNewer declarations)
 
@@ -227,7 +216,9 @@ export default function Home() {
       const url = `/api/messages?beforeTs=${encodeURIComponent(oldestTs)}&limit=${CHUNK_SIZE}`
       const res = await fetch(url, { cache: 'no-store' })
       if (res.ok) {
-        const older: ChatMessageType[] = await res.json()
+        let older: ChatMessageType[] = await res.json()
+        // Ensure stable chronological order before prepending
+        older = older.sort((a, b) => new Date(String(a.timestamp)).getTime() - new Date(String(b.timestamp)).getTime())
         if (older.length === 0) {
           setHasMoreOlder(false)
         } else {
@@ -279,6 +270,8 @@ export default function Home() {
       }
       setMessages(prev => mergeUnique(prev, [tempMessage], 'append'))
       setLatestTs(String(tempMessage.timestamp))
+      // Ensure the new message is visible immediately
+      requestAnimationFrame(() => scrollToBottom())
 
       const response = await fetch('/api/messages', {
         method: 'POST',
@@ -387,10 +380,10 @@ export default function Home() {
     <div className="h-screen overflow-hidden bg-gradient-to-br from-pastel-ink via-shimmer-white to-pastel-gray flex flex-col">
       <Header onlineCount={stats.onlineCount} totalMessages={stats.totalMessages} username={user?.username} countryCode={countryCode || undefined} />
       
-      <main className="flex-1 min-h-0 flex flex-col max-w-4xl mx-auto w-full">
+      <main className="flex-1 min-h-0 flex flex-col max-w-4xl mx-auto w-full overflow-x-hidden">
         {/* Messages area */}
         <div
-          className="relative flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-1"
+          className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 space-y-1"
           ref={messagesContainerRef}
           onScroll={(e) => {
             const el = e.currentTarget
@@ -398,7 +391,7 @@ export default function Home() {
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
             setIsNearBottom(atBottom)
             setAutoScrollLocked(!atBottom)
-            // Do not toggle chip visibility here; it should only appear on new messages
+            // Chip visibility is handled by isNearBottom effect
             // If near the top, load older messages
             const topThreshold = TOP_THRESHOLD
             if (el.scrollTop <= topThreshold) {
@@ -406,6 +399,12 @@ export default function Home() {
             }
           }}
         >
+          {/* Beginning marker */}
+          {!hasMoreOlder && (
+            <div className="sticky top-0 z-10 py-1 flex justify-center">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/10 dark:bg-white/10 border border-white/10 text-gray-400">You’ve reached the beginning</span>
+            </div>
+          )}
           {/* Top loader for older messages */}
           {isLoadingOlder && (
             <div className="flex items-center justify-center py-2">
