@@ -47,7 +47,6 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const quillRef = useRef<ReactQuillType | null>(null)
   const pickerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-  const autolinkRef = useRef(false)
 
   const MAX_SIZE_BYTES = 1 * 1024 * 1024 // 1 MB
   const ACCEPT_TYPES = [

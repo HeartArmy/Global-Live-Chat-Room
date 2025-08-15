@@ -12,7 +12,6 @@ import { ChatMessage as ChatMessageType, User, ReplyInfo } from '@/types/chat'
 export default function Home() {
   // Tunables
   const CHUNK_SIZE = 40
-  const TOP_THRESHOLD = 96 // px from top to trigger loading older
   const BOTTOM_THRESHOLD = 24 // px from bottom to keep auto-follow
   const [user, setUser] = useState<User | null>(null)
   const [messages, setMessages] = useState<ChatMessageType[]>([])
