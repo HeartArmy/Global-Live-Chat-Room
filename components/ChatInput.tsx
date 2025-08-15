@@ -51,6 +51,8 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const quillRef = useRef<ReactQuillType | null>(null)
   const pickerRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  // Remember cursor when opening link popover so we can insert at the right spot
+  const lastSelectionRef = useRef<{ index: number; length: number } | null>(null)
 
   const MAX_SIZE_BYTES = 1 * 1024 * 1024 // 1 MB
   const ACCEPT_TYPES = [
@@ -92,7 +94,13 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const insertLinkIntoEditor = (href: string, display: string) => {
     const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
     if (!q) return
-    const sel = q.getSelection(true)
+    // Restore last known selection if available (opening the popover blurs the editor)
+    const remembered = lastSelectionRef.current
+    if (remembered) {
+      q.focus()
+      q.setSelection(remembered.index, remembered.length, 'user')
+    }
+    const sel = remembered || q.getSelection(true)
     const text = display && display.trim().length ? display : href
     if (sel && sel.length > 0) {
       // Format existing selection as link
@@ -104,6 +112,8 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       q.setSelection(index + text.length, 0, 'user')
     }
     q.focus()
+    // Clear remembered selection
+    lastSelectionRef.current = null
   }
 
   // Quill modules and formats
@@ -166,6 +176,9 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             if (disabled) return false
             const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
             const sel = q?.getSelection()
+            if (q) {
+              lastSelectionRef.current = sel ? { index: sel.index, length: sel.length } : { index: q.getLength(), length: 0 }
+            }
             const selectedText = sel && sel.length ? q?.getText(sel.index, sel.length) || '' : ''
             setLinkText((selectedText || '').trim())
             setLinkUrl('')
@@ -476,6 +489,9 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
                   const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
                   const sel = q?.getSelection()
                   const selectedText = sel && sel.length ? q?.getText(sel.index, sel.length) || '' : ''
+                  if (q) {
+                    lastSelectionRef.current = sel ? { index: sel.index, length: sel.length } : { index: q.getLength(), length: 0 }
+                  }
                   setLinkText((selectedText || '').trim())
                   setLinkUrl('')
                   setLinkError(null)
