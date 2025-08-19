@@ -17,8 +17,8 @@ const nextConfig = {
       "img-src 'self' data: blob: https:",
       // Allow Next.js inline scripts and Vercel analytics
       "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://vitals.vercel-insights.com",
-      // Connect to our APIs and Vercel analytics
-      "connect-src 'self' https://vitals.vercel-insights.com https://vitals.vercel-analytics.com",
+      // Connect to our APIs, Vercel analytics, and Pusher Channels (WS + XHR fallback)
+      "connect-src 'self' https://vitals.vercel-insights.com https://vitals.vercel-analytics.com wss://*.pusher.com https://*.pusher.com",
       // Fonts
       "font-src 'self' data:",
       // Frames blocked
