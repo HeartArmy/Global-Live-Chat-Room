@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Pusher from 'pusher-js'
+import type { Channel } from 'pusher-js'
 import { motion, AnimatePresence } from 'framer-motion'
 import AuthModal from '@/components/AuthModal'
 import ChatMessage from '@/components/ChatMessage'
@@ -258,7 +259,7 @@ export default function Home() {
 
     // Avoid duplicate connections
     let pusher: Pusher | null = null
-    let channel: Pusher.Channel | null = null
+    let channel: Channel | null = null
 
     try {
       pusher = new Pusher(key, {
@@ -282,9 +283,9 @@ export default function Home() {
 
       channel = pusher.subscribe('chat-global')
 
-      const handleMerge = (incoming: any) => {
+      const handleMerge = (incoming: ChatMessageType) => {
         try {
-          const msg = incoming as ChatMessageType
+          const msg = incoming
           setMessages(prev => {
             const filtered = prev.filter(m => {
               if (msg.clientTempId && m.clientTempId === msg.clientTempId) return false
@@ -296,20 +297,19 @@ export default function Home() {
           setLatestTs(prevTs => {
             const prevTime = prevTs ? new Date(prevTs).getTime() : 0
             const t1 = new Date(String(msg.timestamp)).getTime()
-            const t2 = (msg as any).updatedAt ? new Date(String((msg as any).updatedAt)).getTime() : t1
+            const t2 = msg.updatedAt ? new Date(String(msg.updatedAt)).getTime() : t1
             const maxTs = Math.max(prevTime, t1, t2)
             return maxTs > prevTime ? new Date(maxTs).toISOString() : (prevTs || null)
           })
         } catch {}
       }
 
-      const onCreated = (data: any) => handleMerge(data)
-      const onEdited = (data: any) => handleMerge(data)
-      const onUpdated = (data: any) => handleMerge(data)
-      const onTyping = (data: any) => {
+      const onCreated = (data: ChatMessageType) => handleMerge(data)
+      const onEdited = (data: ChatMessageType) => handleMerge(data)
+      const onUpdated = (data: ChatMessageType) => handleMerge(data)
+      const onTyping = (data: { users: string[]; count: number }) => {
         try {
-          const d = data as { users: string[]; count: number }
-          setTypingUsers((d.users || []).filter(u => u && u !== (user?.username || '')))
+          setTypingUsers((data.users || []).filter(u => u && u !== (user?.username || '')))
         } catch {}
       }
 
@@ -672,18 +672,30 @@ export default function Home() {
 
         </div>
 
-        {/* Typing indicator */}
+        {/* Typing indicator (more noticeable without crowding) */}
         {typingUsers.length > 0 && (
-          <div className="px-4 pb-1 -mt-1 text-sm sm:text-xs text-gray-600 dark:text-gray-400">
-            {(() => {
-              const names = typingUsers.slice(0, 3)
-              const remaining = typingUsers.length - names.length
-              const nameList = names.join(', ')
-              if (remaining > 0) return `${nameList} and ${remaining} other${remaining > 1 ? 's' : ''} are typing…`
-              if (names.length === 1) return `${names[0]} is typing…`
-              if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`
-              return `${nameList} are typing…`
-            })()}
+          <div className="px-4 pb-2 -mt-1">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/10 dark:bg-white/10 border border-white/10 text-[12px] sm:text-[11px] text-gray-800 dark:text-gray-200">
+              <span className="relative inline-flex items-center">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
+                <span className="flex gap-1 ml-1">
+                  <span className="h-1 w-1 rounded-full bg-gray-500/80 animate-bounce [animation-delay:0ms]" />
+                  <span className="h-1 w-1 rounded-full bg-gray-500/80 animate-bounce [animation-delay:120ms]" />
+                  <span className="h-1 w-1 rounded-full bg-gray-500/80 animate-bounce [animation-delay:240ms]" />
+                </span>
+              </span>
+              <span>
+                {(() => {
+                  const names = typingUsers.slice(0, 3)
+                  const remaining = typingUsers.length - names.length
+                  const nameList = names.join(', ')
+                  if (remaining > 0) return `${nameList} and ${remaining} other${remaining > 1 ? 's' : ''} are typing…`
+                  if (names.length === 1) return `${names[0]} is typing…`
+                  if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`
+                  return `${nameList} are typing…`
+                })()}
+              </span>
+            </div>
           </div>
         )}
 

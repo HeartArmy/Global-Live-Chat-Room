@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { publish } from '@/lib/events'
-import { getPusher, PUSHER_CHANNEL, EVENT_MESSAGE_CREATED, EVENT_MESSAGE_UPDATED, EVENT_MESSAGE_EDITED } from '@/lib/pusher'
+import { getPusher, PUSHER_CHANNEL, EVENT_MESSAGE_CREATED } from '@/lib/pusher'
 export const dynamic = 'force-dynamic'
 import { getDatabase } from '@/lib/mongodb'
 import { ChatMessage } from '@/types/chat'
