@@ -216,7 +216,7 @@ export async function PATCH(request: NextRequest) {
     const db = await getDatabase()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const collection = db.collection('messages') as any
-    // Fetch to validate ownership and age window (<= 1 hour)
+    // Fetch to validate ownership and age window (<= 10 minutes)
     const existing = await collection.findOne({ _id: new ObjectId(id), username })
     if (!existing) {
       return NextResponse.json({ error: 'Message not found or not owned by user' }, { status: 404 })
@@ -224,9 +224,9 @@ export async function PATCH(request: NextRequest) {
     const rawTs = (existing as { timestamp?: unknown })?.timestamp
     const createdAt = rawTs instanceof Date ? rawTs : new Date(String(rawTs))
     const now = new Date()
-    const ONE_HOUR = 60 * 60 * 1000
-    if (now.getTime() - createdAt.getTime() > ONE_HOUR) {
-      return NextResponse.json({ error: 'Editing window expired (1 hour limit)' }, { status: 403 })
+    const TEN_MINUTES = 10 * 60 * 1000
+    if (now.getTime() - createdAt.getTime() > TEN_MINUTES) {
+      return NextResponse.json({ error: 'Editing window expired (10 minute limit)' }, { status: 403 })
     }
     const result = await collection.updateOne(
       { _id: new ObjectId(id) },
