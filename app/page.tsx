@@ -42,6 +42,8 @@ export default function Home() {
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const lastTypingPostRef = useRef(0)
   const lastTypingStateRef = useRef<boolean>(false)
+  const esConnectedRef = useRef<boolean>(true)
+  const lastPollAtRef = useRef<number>(0)
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -167,14 +169,20 @@ export default function Home() {
     fetch('/api/geo')
       .then((r) => r.json()).then((d) => setCountryCode(d?.countryCode || null)).catch(() => {})
     
-    // Poll for new messages every 3 seconds
-    const interval = setInterval(() => {
+    // Poll newer at a dynamic interval: faster if SSE is disconnected
+    const tick = () => {
       // Only poll when tab visible
       if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-        pollNewer()
-        fetchStats()
+        const now = Date.now()
+        const minGap = esConnectedRef.current ? 1500 : 500
+        if (now - lastPollAtRef.current >= minGap) {
+          lastPollAtRef.current = now
+          pollNewer()
+          fetchStats()
+        }
       }
-    }, 1500)
+    }
+    const interval = setInterval(tick, 500)
 
     return () => clearInterval(interval)
   }, [fetchStats, pollNewer])
@@ -222,8 +230,10 @@ export default function Home() {
     es.addEventListener('message_edited', onEdited)
     es.addEventListener('message_updated', onUpdated)
     es.addEventListener('typing_update', onTyping)
+    es.onopen = () => { esConnectedRef.current = true }
     es.onerror = () => {
-      // let browser auto-reconnect
+      // let browser auto-reconnect; mark disconnected to tighten polling
+      esConnectedRef.current = false
     }
     return () => {
       es.removeEventListener('message_created', onCreated)
@@ -381,6 +391,8 @@ export default function Home() {
     requestAnimationFrame(() => {
       setIsNearBottom(true)
       setAutoScrollLocked(false)
+      // Ensure latest is visible after closing auth/math modal
+      scrollToBottomInstant()
     })
   }
 
@@ -443,7 +455,12 @@ export default function Home() {
   const postTyping = useCallback(async (isTyping: boolean) => {
     if (!user) return
     const now = Date.now()
-    if (lastTypingStateRef.current === isTyping && now - lastTypingPostRef.current < 800) return
+    // Debounce to ~400ms; also refresh a 'true' ping every 2s even if state unchanged
+    if (lastTypingStateRef.current === isTyping) {
+      const minGap = 400
+      const refreshGap = isTyping ? 2000 : minGap
+      if (now - lastTypingPostRef.current < refreshGap) return
+    }
     lastTypingStateRef.current = isTyping
     lastTypingPostRef.current = now
     try {
@@ -568,8 +585,16 @@ export default function Home() {
 
         {/* Typing indicator */}
         {typingUsers.length > 0 && (
-          <div className="px-4 pb-1 -mt-1 text-[11px] text-gray-500">
-            {typingUsers.length === 1 ? `${typingUsers[0]} is typing…` : `${typingUsers.length} people are typing…`}
+          <div className="px-4 pb-1 -mt-1 text-sm sm:text-xs text-gray-600 dark:text-gray-400">
+            {(() => {
+              const names = typingUsers.slice(0, 3)
+              const remaining = typingUsers.length - names.length
+              const nameList = names.join(', ')
+              if (remaining > 0) return `${nameList} and ${remaining} other${remaining > 1 ? 's' : ''} are typing…`
+              if (names.length === 1) return `${names[0]} is typing…`
+              if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`
+              return `${nameList} are typing…`
+            })()}
           </div>
         )}
 

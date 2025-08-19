@@ -56,6 +56,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const lastSelectionRef = useRef<{ index: number; length: number } | null>(null)
   // Typing timers
   const typingIdleTimerRef = useRef<number | null>(null)
+  const typingKeepaliveRef = useRef<number | null>(null)
 
   const MAX_SIZE_BYTES = 1 * 1024 * 1024 // 1 MB
   const ACCEPT_TYPES = [
@@ -201,11 +202,21 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     // Emit typing start and reset idle timer
     if (onTyping && !disabled) {
       onTyping(true)
+      // Start/refresh keepalive to maintain typing state while user is pausing briefly
+      if (typingKeepaliveRef.current) window.clearInterval(typingKeepaliveRef.current)
+      typingKeepaliveRef.current = window.setInterval(() => {
+        onTyping(true)
+      }, 1500)
       if (typingIdleTimerRef.current) {
         window.clearTimeout(typingIdleTimerRef.current)
       }
       typingIdleTimerRef.current = window.setTimeout(() => {
         onTyping(false)
+        // Stop keepalive on idle
+        if (typingKeepaliveRef.current) {
+          window.clearInterval(typingKeepaliveRef.current)
+          typingKeepaliveRef.current = null
+        }
       }, 2500)
     }
     // No automatic hyperlinking; links are inserted only via the Insert Link dialog (⌘K / Ctrl+K)
@@ -303,6 +314,10 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     return () => {
       if (typingIdleTimerRef.current) window.clearTimeout(typingIdleTimerRef.current)
       if (onTyping) onTyping(false)
+      if (typingKeepaliveRef.current) {
+        window.clearInterval(typingKeepaliveRef.current)
+        typingKeepaliveRef.current = null
+      }
     }
   }, [onTyping])
 

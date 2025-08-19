@@ -8,7 +8,7 @@ const WINDOW_MS = 60 * 1000 // consider user active if seen in last 60s
 // Keyed by sessionId to avoid duplicate entries per user if they reconnect
 const typingBySession = new Map<string, { username: string; last: number }>()
 
-function pruneTyping(staleMs = 4000) {
+function pruneTyping(staleMs = 7000) {
   const now = Date.now()
   typingBySession.forEach((info, sid) => {
     if (now - info.last > staleMs) typingBySession.delete(sid)
