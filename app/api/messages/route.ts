@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { publish } from '@/lib/events'
 import { getPusher, PUSHER_CHANNEL, EVENT_MESSAGE_CREATED } from '@/lib/pusher'
 export const dynamic = 'force-dynamic'
 import { getDatabase } from '@/lib/mongodb'
@@ -142,13 +141,12 @@ export async function POST(request: NextRequest) {
       replyTo: safeReply,
     }
 
-    // Optimistic broadcast to all clients BEFORE DB insert
+    // Optimistic broadcast to all clients BEFORE DB insert (Pusher only)
     if (clientTempId) {
       const optimisticPayload = { ...newMessage, clientTempId }
-      publish({ type: 'message_created', payload: optimisticPayload })
       try {
         const p = getPusher()
-        if (p) await p.trigger(PUSHER_CHANNEL, EVENT_MESSAGE_CREATED, optimisticPayload)
+        if (p) void p.trigger(PUSHER_CHANNEL, EVENT_MESSAGE_CREATED, optimisticPayload)
       } catch {}
     }
 
@@ -156,10 +154,9 @@ export async function POST(request: NextRequest) {
     const result = await db.collection('messages').insertOne(newMessage)
 
     const created = { _id: result.insertedId.toString(), ...newMessage, clientTempId }
-    publish({ type: 'message_created', payload: created })
     try {
       const p = getPusher()
-      if (p) await p.trigger(PUSHER_CHANNEL, EVENT_MESSAGE_CREATED, created)
+      if (p) void p.trigger(PUSHER_CHANNEL, EVENT_MESSAGE_CREATED, created)
     } catch {}
     // Broadcast canonical creation (will reconcile by clientTempId on clients)
     // Fire-and-throttle admin email notifications (non-blocking) when sender is not 'arham'
@@ -246,7 +243,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update message' }, { status: 500 })
     }
     const updated = await collection.findOne({ _id: new ObjectId(id) })
-    if (updated) publish({ type: 'message_edited', payload: { ...updated, _id: updated._id.toString() } })
     return NextResponse.json(updated)
   } catch {
     return NextResponse.json({ error: 'Failed to edit message' }, { status: 500 })

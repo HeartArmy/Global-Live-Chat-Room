@@ -38,15 +38,11 @@ export default function Home() {
   const [hasMoreOlder, setHasMoreOlder] = useState(true)
   // Stable session id for presence tracking
   const [sessionId] = useState<string>(() => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
-  // Prevent overlapping polls
-  const isPollingRef = useRef(false)
   // Typing indicator state
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const lastTypingPostRef = useRef(0)
   const lastTypingStateRef = useRef<boolean>(false)
-  const esConnectedRef = useRef<boolean>(true)
-  const realtimeConnectedRef = useRef<boolean>(false)
-  const lastPollAtRef = useRef<number>(0)
+  // Realtime handled solely by Pusher (no SSE/polling)
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -98,7 +94,7 @@ export default function Home() {
     setShowScrollToLatest(!isNearBottom)
   }, [isNearBottom])
 
-  // (mount effect moved below, after fetchStats/pollNewer declarations)
+  // (mount effect moved below, after fetchStats declaration)
 
   // Load latest chunk initially
   const loadInitial = async () => {
@@ -120,37 +116,6 @@ export default function Home() {
     }
   }
 
-  // Poll for new messages newer than latestTs and append
-  const pollNewer = useCallback(async () => {
-    if (!latestTs || isPollingRef.current) return
-    if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
-    isPollingRef.current = true
-    try {
-      const url = `/api/messages?afterTs=${encodeURIComponent(latestTs)}&limit=${CHUNK_SIZE}`
-      const res = await fetch(url, { cache: 'no-store' })
-      if (res.ok) {
-        const newer: ChatMessageType[] = await res.json()
-        if (newer.length > 0) {
-          setMessages(prev => mergeUnique(prev, newer, 'append'))
-          // Only advance latestTs if there are truly newer updates (timestamp or updatedAt) beyond the current latestTs
-          setLatestTs(prevTs => {
-            const prevTime = prevTs ? new Date(prevTs).getTime() : 0
-            let maxTs = prevTime
-            for (const m of newer) {
-              const t1 = new Date(String(m.timestamp)).getTime()
-              const t2 = m.updatedAt ? new Date(String(m.updatedAt)).getTime() : t1
-              const t = Math.max(t1, t2)
-              if (t > maxTs) maxTs = t
-            }
-            return maxTs > prevTime ? new Date(maxTs).toISOString() : (prevTs || null)
-          })
-        }
-      }
-    } catch {}
-    finally {
-      isPollingRef.current = false
-    }
-  }, [latestTs])
 
   const fetchStats = useCallback(async () => {
     try {
@@ -171,83 +136,11 @@ export default function Home() {
     // fetch country (privacy-friendly; no IP stored)
     fetch('/api/geo')
       .then((r) => r.json()).then((d) => setCountryCode(d?.countryCode || null)).catch(() => {})
-    
-    // Poll newer at a dynamic interval: faster if SSE is disconnected
-    const tick = () => {
-      // Only poll when tab visible
-      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
-        const now = Date.now()
-        const connected = esConnectedRef.current || realtimeConnectedRef.current
-        const minGap = connected ? 1500 : 500
-        if (now - lastPollAtRef.current >= minGap) {
-          lastPollAtRef.current = now
-          pollNewer()
-          fetchStats()
-        }
-      }
-    }
-    const interval = setInterval(tick, 500)
-
-    return () => clearInterval(interval)
-  }, [fetchStats, pollNewer])
+  }, [fetchStats])
 
   // (moved below loadOlder)
 
-  // SSE subscription for instant updates (including typing updates)
-  useEffect(() => {
-    const es = new EventSource('/api/events')
-    const handleMerge = (incoming: ChatMessageType) => {
-      setMessages(prev => {
-        // Reconcile by clientTempId and _id to avoid duplicates across optimistic + canonical events
-        const filtered = prev.filter(m => {
-          if (incoming.clientTempId && m.clientTempId === incoming.clientTempId) return false
-          if (incoming._id && m._id === incoming._id) return false
-          return true
-        })
-        return mergeUnique(filtered, [incoming], 'append')
-      })
-      setLatestTs(prevTs => {
-        const prevTime = prevTs ? new Date(prevTs).getTime() : 0
-        const t1 = new Date(String(incoming.timestamp)).getTime()
-        const t2 = incoming.updatedAt ? new Date(String(incoming.updatedAt)).getTime() : t1
-        const maxTs = Math.max(prevTime, t1, t2)
-        return maxTs > prevTime ? new Date(maxTs).toISOString() : (prevTs || null)
-      })
-    }
-    const onCreated = (ev: MessageEvent) => {
-      try { handleMerge(JSON.parse(ev.data)) } catch {}
-    }
-    const onEdited = (ev: MessageEvent) => {
-      try { handleMerge(JSON.parse(ev.data)) } catch {}
-    }
-    const onUpdated = (ev: MessageEvent) => {
-      try { handleMerge(JSON.parse(ev.data)) } catch {}
-    }
-    const onTyping = (ev: MessageEvent) => {
-      try {
-        const data = JSON.parse(ev.data) as { users: string[]; count: number }
-        // Hide current user's own typing from the list
-        setTypingUsers((data.users || []).filter(u => u && u !== (user?.username || '')))
-      } catch {}
-    }
-    es.addEventListener('message_created', onCreated)
-    es.addEventListener('message_edited', onEdited)
-    es.addEventListener('message_updated', onUpdated)
-    es.addEventListener('typing_update', onTyping)
-    es.onopen = () => { esConnectedRef.current = true }
-    es.onerror = () => {
-      // let browser auto-reconnect; mark disconnected to tighten polling
-      esConnectedRef.current = false
-      // status chip removed; internal flags still adjust polling
-    }
-    return () => {
-      es.removeEventListener('message_created', onCreated)
-      es.removeEventListener('message_edited', onEdited)
-      es.removeEventListener('message_updated', onUpdated)
-      es.removeEventListener('typing_update', onTyping)
-      es.close()
-    }
-  }, [user?.username])
+  // SSE removed: Pusher-only realtime
 
   // Pusher Channels subscription for cross-instance realtime
   useEffect(() => {
@@ -267,16 +160,8 @@ export default function Home() {
         enabledTransports: ['ws', 'wss'],
       })
 
-      pusher.connection.bind('connected', () => {
-        realtimeConnectedRef.current = true
-      })
-      pusher.connection.bind('disconnected', () => {
-        realtimeConnectedRef.current = false
-        // status chip removed
-      })
-      pusher.connection.bind('error', () => {
-        // status chip removed
-      })
+      // Optional: silence logs in production
+      // Pusher.logToConsole = false
 
       channel = pusher.subscribe('chat-global')
 
@@ -321,7 +206,7 @@ export default function Home() {
           channel?.unbind('message_edited', onEdited)
           channel?.unbind('message_updated', onUpdated)
           channel?.unbind('typing_update', onTyping)
-          if (pusher && channel) pusher.unsubscribe('chat-global')
+          // Avoid unsubscribe() on closing/closed sockets; disconnect handles teardown safely
           if (pusher) pusher.disconnect()
         } catch {}
       }
@@ -418,18 +303,6 @@ export default function Home() {
       // Ensure the new message is visible immediately (no smooth animation)
       scrollToBottomInstant()
 
-      // Ensure we have a country code; fetch on-demand if missing (non-blocking for UI)
-      let cc = countryCode
-      if (!cc) {
-        try {
-          const r = await fetch('/api/geo', { cache: 'no-store' })
-          if (r.ok) {
-            const d = await r.json()
-            cc = (d?.countryCode as string | null) || null
-          }
-        } catch {}
-      }
-
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
@@ -439,7 +312,7 @@ export default function Home() {
           username: user.username,
           message,
           html: html && html.trim().length ? html : undefined,
-          countryCode: cc || undefined,
+          countryCode: countryCode || undefined,
           replyTo: reply || undefined,
           clientTempId: tempId,
         }),
@@ -454,7 +327,6 @@ export default function Home() {
         })
         if (newMessage?.timestamp) setLatestTs(String(newMessage.timestamp))
         setReplyTo(undefined)
-        fetchStats() // Update stats after sending
       } else {
         await response.json().catch(() => ({}))
         // Remove optimistic message on failure
@@ -701,7 +573,7 @@ export default function Home() {
           {user ? (
           <ChatInput
             onSendMessage={handleSendMessage}
-            disabled={isSending}
+            disabled={false}
             replyTo={replyTo}
             onCancelReply={() => setReplyTo(undefined)}
             onTyping={(isTyping) => postTyping(isTyping)}
