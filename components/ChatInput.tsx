@@ -22,6 +22,7 @@ interface ChatInputProps {
   disabled?: boolean
   replyTo?: ReplyInfo
   onCancelReply?: () => void
+  onTyping?: (isTyping: boolean) => void
 }
 
 const funnyPlaceholders = [
@@ -37,7 +38,7 @@ const funnyPlaceholders = [
   "What's happening in your corner of the world?"
 ]
 
-export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelReply }: ChatInputProps) {
+export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelReply, onTyping }: ChatInputProps) {
   const [plainText, setPlainText] = useState('')
   const [html, setHtml] = useState('')
   const [currentPlaceholder, setCurrentPlaceholder] = useState(funnyPlaceholders[0])
@@ -53,6 +54,8 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   // Remember cursor when opening link popover so we can insert at the right spot
   const lastSelectionRef = useRef<{ index: number; length: number } | null>(null)
+  // Typing timers
+  const typingIdleTimerRef = useRef<number | null>(null)
 
   const MAX_SIZE_BYTES = 1 * 1024 * 1024 // 1 MB
   const ACCEPT_TYPES = [
@@ -195,6 +198,16 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const handleQuillChange = (value: string, _delta: unknown, _source: unknown, editor: UnprivilegedEditor) => {
     setHtml(value)
     setPlainText(editor.getText())
+    // Emit typing start and reset idle timer
+    if (onTyping && !disabled) {
+      onTyping(true)
+      if (typingIdleTimerRef.current) {
+        window.clearTimeout(typingIdleTimerRef.current)
+      }
+      typingIdleTimerRef.current = window.setTimeout(() => {
+        onTyping(false)
+      }, 2500)
+    }
     // No automatic hyperlinking; links are inserted only via the Insert Link dialog (⌘K / Ctrl+K)
   }
 
@@ -271,12 +284,27 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       q?.setText('')
       if (onCancelReply) onCancelReply()
       
+      // Stop typing when sending
+      if (onTyping) onTyping(false)
+      if (typingIdleTimerRef.current) {
+        window.clearTimeout(typingIdleTimerRef.current)
+        typingIdleTimerRef.current = null
+      }
+      
       // Change placeholder after sending a message
       const randomPlaceholder = funnyPlaceholders[Math.floor(Math.random() * funnyPlaceholders.length)]
       setCurrentPlaceholder(randomPlaceholder)
       setShowPicker(false)
     }
   }
+
+  // Stop typing on unmount
+  useEffect(() => {
+    return () => {
+      if (typingIdleTimerRef.current) window.clearTimeout(typingIdleTimerRef.current)
+      if (onTyping) onTyping(false)
+    }
+  }, [onTyping])
 
   // Keyboard shortcuts for formatting
   const applyFormat = (fmt: 'bold' | 'italic' | 'underline' | 'header0' | 'header1' | 'header2' | 'header3') => {
@@ -615,6 +643,8 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             onChange={handleQuillChange}
             modules={modules}
             className="rounded-2xl min-h-12 max-h-32 overflow-y-auto px-4 py-3 text-xs bg-transparent w-full"
+            onBlur={() => { if (onTyping) onTyping(false) }}
+            onFocus={() => { if (onTyping) onTyping(true) }}
           />
         </div>
         {/* Removed file chooser: paste-only flow */}

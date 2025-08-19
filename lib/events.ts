@@ -6,6 +6,7 @@ export type ChatServerEvent =
   | { type: 'message_edited'; payload: unknown }
   | { type: 'message_updated'; payload: unknown } // reactions or other fields
   | { type: 'ping' }
+  | { type: 'typing_update'; payload: { users: string[]; count: number } }
 
 type Subscriber = (chunk: string) => void
 const subscribers = new Set<Subscriber>()

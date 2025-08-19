@@ -144,14 +144,14 @@ export async function POST(request: NextRequest) {
           const now = new Date()
           const last = doc?.lastSentAt ? new Date(doc.lastSentAt) : undefined
           const elapsed = last ? now.getTime() - last.getTime() : Number.POSITIVE_INFINITY
-          const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000
-          if (elapsed >= TWENTY_FOUR_HOURS) {
+          const TWO_HOURS = 2 * 60 * 60 * 1000
+          if (elapsed >= TWO_HOURS) {
             const host = process.env.SMTP_HOST
             const port = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587
             const user = process.env.SMTP_USER
             const pass = process.env.SMTP_PASS
-            const to = process.env.NOTIFY_EMAIL_TO || 'arhampersonal@icloud.com'
-            if (host && user && pass) {
+            const to = process.env.NOTIFY_EMAIL_TO
+            if (host && user && pass && to) {
               const transporter = nodemailer.createTransport({
                 host,
                 port,

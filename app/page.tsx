@@ -38,6 +38,10 @@ export default function Home() {
   const [sessionId] = useState<string>(() => (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
   // Prevent overlapping polls
   const isPollingRef = useRef(false)
+  // Typing indicator state
+  const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const lastTypingPostRef = useRef(0)
+  const lastTypingStateRef = useRef<boolean>(false)
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -177,7 +181,7 @@ export default function Home() {
 
   // (moved below loadOlder)
 
-  // SSE subscription for instant updates
+  // SSE subscription for instant updates (including typing updates)
   useEffect(() => {
     const es = new EventSource('/api/events')
     const handleMerge = (incoming: ChatMessageType) => {
@@ -202,9 +206,17 @@ export default function Home() {
     const onUpdated = (ev: MessageEvent) => {
       try { handleMerge(JSON.parse(ev.data)) } catch {}
     }
+    const onTyping = (ev: MessageEvent) => {
+      try {
+        const data = JSON.parse(ev.data) as { users: string[]; count: number }
+        // Hide current user's own typing from the list
+        setTypingUsers((data.users || []).filter(u => u && u !== (user?.username || '')))
+      } catch {}
+    }
     es.addEventListener('message_created', onCreated)
     es.addEventListener('message_edited', onEdited)
     es.addEventListener('message_updated', onUpdated)
+    es.addEventListener('typing_update', onTyping)
     es.onerror = () => {
       // let browser auto-reconnect
     }
@@ -212,9 +224,10 @@ export default function Home() {
       es.removeEventListener('message_created', onCreated)
       es.removeEventListener('message_edited', onEdited)
       es.removeEventListener('message_updated', onUpdated)
+      es.removeEventListener('typing_update', onTyping)
       es.close()
     }
-  }, [])
+  }, [user?.username])
 
   // Fetch older messages before current oldestTs and prepend, preserving scroll position
   const loadOlder = useCallback(async () => {
@@ -285,7 +298,25 @@ export default function Home() {
 
     setIsSending(true)
     try {
-      // Ensure we have a country code; fetch on-demand if missing
+      // Optimistic UI FIRST: add a temporary message immediately (no blocking geo fetch)
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const tz = (Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone) || 'UTC'
+      const tempMessage: ChatMessageType = {
+        _id: tempId,
+        username: user.username,
+        message,
+        html: html && html.trim().length ? html : undefined,
+        timestamp: new Date(),
+        timezone: tz,
+        countryCode: countryCode || undefined,
+        replyTo: reply || undefined,
+      }
+      setMessages(prev => mergeUnique(prev, [tempMessage], 'append'))
+      setLatestTs(String(tempMessage.timestamp))
+      // Ensure the new message is visible immediately
+      requestAnimationFrame(() => scrollToBottom())
+
+      // Ensure we have a country code; fetch on-demand if missing (non-blocking for UI)
       let cc = countryCode
       if (!cc) {
         try {
@@ -296,23 +327,6 @@ export default function Home() {
           }
         } catch {}
       }
-      // Optimistic UI: add a temporary message immediately
-      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
-      const tz = (Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone) || 'UTC'
-      const tempMessage: ChatMessageType = {
-        _id: tempId,
-        username: user.username,
-        message,
-        html: html && html.trim().length ? html : undefined,
-        timestamp: new Date(),
-        timezone: tz,
-        countryCode: cc || undefined,
-        replyTo: reply || undefined,
-      }
-      setMessages(prev => mergeUnique(prev, [tempMessage], 'append'))
-      setLatestTs(String(tempMessage.timestamp))
-      // Ensure the new message is visible immediately
-      requestAnimationFrame(() => scrollToBottom())
 
       const response = await fetch('/api/messages', {
         method: 'POST',
@@ -417,6 +431,23 @@ export default function Home() {
       window.removeEventListener('beforeunload', onUnload)
     }
   }, [sessionId, user?.username])
+
+  // Post typing indicator (debounced and state-deduped)
+  const postTyping = useCallback(async (isTyping: boolean) => {
+    if (!user) return
+    const now = Date.now()
+    if (lastTypingStateRef.current === isTyping && now - lastTypingPostRef.current < 800) return
+    lastTypingStateRef.current = isTyping
+    lastTypingPostRef.current = now
+    try {
+      await fetch('/api/presence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, username: user.username, isTyping }),
+        keepalive: true,
+      })
+    } catch {}
+  }, [sessionId, user])
 
   return (
     <div className="h-screen overflow-hidden bg-gradient-to-br from-pastel-ink via-shimmer-white to-pastel-gray flex flex-col">
@@ -528,12 +559,20 @@ export default function Home() {
 
         </div>
 
+        {/* Typing indicator */}
+        {typingUsers.length > 0 && (
+          <div className="px-4 pb-1 -mt-1 text-[11px] text-gray-500">
+            {typingUsers.length === 1 ? `${typingUsers[0]} is typing…` : `${typingUsers.length} people are typing…`}
+          </div>
+        )}
+
           {user ? (
           <ChatInput
             onSendMessage={handleSendMessage}
             disabled={isSending}
             replyTo={replyTo}
             onCancelReply={() => setReplyTo(undefined)}
+            onTyping={(isTyping) => postTyping(isTyping)}
           />
         ) : (
           <motion.div
