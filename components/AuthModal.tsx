@@ -25,6 +25,15 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
       setStep('username')
       setError('')
       setChallenge(null)
+      // Prefill from localStorage to avoid retyping
+      try {
+        if (typeof window !== 'undefined') {
+          const stored = window.localStorage.getItem('glcr_username_v1')
+          if (stored && typeof stored === 'string') {
+            setUsername(stored)
+          }
+        }
+      } catch {}
     }
   }, [isOpen])
 
@@ -69,6 +78,12 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
         username: username.trim(),
         isVerified: true
       })
+      // Persist last used username for convenience
+      try {
+        if (typeof window !== 'undefined') {
+          window.localStorage.setItem('glcr_username_v1', username.trim())
+        }
+      } catch {}
       setIsLoading(false)
     }, 500) // Small delay for better UX
   }

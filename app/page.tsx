@@ -29,17 +29,32 @@ export default function Home() {
   const [showScrollToLatest, setShowScrollToLatest] = useState(false)
   const didInitialScroll = useRef(false)
   const [countryCode, setCountryCode] = useState<string | null>(null)
+  // Compute timezone once per session
+  const tzRef = useRef<string>(
+    (Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone) || 'UTC'
+  )
   // Lightweight client-side meta cache: username -> { countryCode? }
   const [userMeta, setUserMeta] = useState<Record<string, { countryCode?: string }>>(() => {
     if (typeof window === 'undefined') return {}
+    const TTL_MS = 14 * 24 * 60 * 60 * 1000 // 14 days
     try {
-      const raw = window.localStorage.getItem('glcr_user_meta_v1')
-      if (!raw) return {}
-      const parsed = JSON.parse(raw)
-      return typeof parsed === 'object' && parsed ? parsed : {}
-    } catch {
-      return {}
-    }
+      // Prefer v2: { data: Record<string, {...}>, ts: number }
+      const rawV2 = window.localStorage.getItem('glcr_user_meta_v2')
+      if (rawV2) {
+        const parsed = JSON.parse(rawV2)
+        const ts = typeof parsed?.ts === 'number' ? parsed.ts : 0
+        if (ts && Date.now() - ts < TTL_MS && parsed?.data && typeof parsed.data === 'object') {
+          return parsed.data
+        }
+      }
+      // Fallback to legacy v1 shape (no TTL)
+      const rawV1 = window.localStorage.getItem('glcr_user_meta_v1')
+      if (rawV1) {
+        const parsedV1 = JSON.parse(rawV1)
+        if (parsedV1 && typeof parsedV1 === 'object') return parsedV1
+      }
+    } catch {}
+    return {}
   })
   // Removed time rate-limit; rely on isLoadingOlder guard
   // Pagination state
@@ -157,9 +172,29 @@ export default function Home() {
   useEffect(() => {
     loadInitial()
     fetchStats()
-    // fetch country (privacy-friendly; no IP stored)
-    fetch('/api/geo')
-      .then((r) => r.json()).then((d) => setCountryCode(d?.countryCode || null)).catch(() => {})
+    // fetch country once per session (privacy-friendly; no IP stored)
+    try {
+      const cached = typeof window !== 'undefined' ? window.sessionStorage.getItem('glcr_geo_v1') : null
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed && typeof parsed === 'object' && typeof parsed.countryCode === 'string') {
+          setCountryCode(parsed.countryCode)
+        }
+      } else {
+        fetch('/api/geo')
+          .then((r) => r.json())
+          .then((d) => {
+            const cc = d?.countryCode || null
+            setCountryCode(cc)
+            try {
+              if (typeof window !== 'undefined') {
+                window.sessionStorage.setItem('glcr_geo_v1', JSON.stringify({ countryCode: cc }))
+              }
+            } catch {}
+          })
+          .catch(() => {})
+      }
+    } catch {}
   }, [fetchStats])
 
   // (moved below loadOlder)
@@ -319,7 +354,7 @@ export default function Home() {
     try {
       // Optimistic UI FIRST: add a temporary message immediately (no blocking geo fetch)
       const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`
-      const tz = (Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone) || 'UTC'
+      const tz = tzRef.current
       const tempMessage: ChatMessageType = {
         _id: tempId,
         clientTempId: tempId,
@@ -448,10 +483,13 @@ export default function Home() {
     }
   }, [sessionId, user?.username])
 
-  // Persist userMeta to localStorage
+  // Persist userMeta to localStorage (v2 with TTL timestamp) and migrate from v1
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
+        const payload = JSON.stringify({ data: userMeta, ts: Date.now() })
+        window.localStorage.setItem('glcr_user_meta_v2', payload)
+        // Optional: keep v1 in sync for older clients (can be removed later)
         window.localStorage.setItem('glcr_user_meta_v1', JSON.stringify(userMeta))
       }
     } catch {}
