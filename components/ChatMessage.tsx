@@ -19,14 +19,14 @@ const ReactQuill = dynamic(
 interface ChatMessageProps {
   message: ChatMessageType
   currentUsername?: string
-  currentUserCountry?: string
+  authorCountryCode?: string
   index: number
   onReply?: (reply: ReplyInfo) => void
   onEdited?: (updated: ChatMessageType) => void
   onToggleReaction?: (id: string, emoji: string) => Promise<ReactionMap | undefined>
 }
 
-export default function ChatMessage({ message, currentUsername, currentUserCountry, index, onReply, onEdited, onToggleReaction }: ChatMessageProps) {
+export default function ChatMessage({ message, currentUsername, authorCountryCode, onReply, onEdited, onToggleReaction }: ChatMessageProps) {
   const isCurrentUser = message.username === currentUsername
   const text = message.message
   const html = message.html
@@ -410,6 +410,12 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
           <div className={`relative flex items-center gap-2 mt-1 text-xs text-gray-400 ${
             isCurrentUser ? 'flex-row-reverse' : 'flex-row'
           }`}>
+            {/* Author name + flag */}
+            <span className="inline-flex items-center gap-1 max-w-[50vw] truncate">
+              <span className="opacity-90">{countryCodeToFlag(authorCountryCode)}</span>
+              <span className="font-medium text-gray-500 dark:text-gray-300 truncate" title={message.username}>{message.username}</span>
+            </span>
+            <span>•</span>
             <span title={formatAbsolute(new Date(message.timestamp))}>
               {formatTimestamp(new Date(message.timestamp))}
             </span>

@@ -29,6 +29,18 @@ export default function Home() {
   const [showScrollToLatest, setShowScrollToLatest] = useState(false)
   const didInitialScroll = useRef(false)
   const [countryCode, setCountryCode] = useState<string | null>(null)
+  // Lightweight client-side meta cache: username -> { countryCode? }
+  const [userMeta, setUserMeta] = useState<Record<string, { countryCode?: string }>>(() => {
+    if (typeof window === 'undefined') return {}
+    try {
+      const raw = window.localStorage.getItem('glcr_user_meta_v1')
+      if (!raw) return {}
+      const parsed = JSON.parse(raw)
+      return typeof parsed === 'object' && parsed ? parsed : {}
+    } catch {
+      return {}
+    }
+  })
   // Removed time rate-limit; rely on isLoadingOlder guard
   // Pagination state
   const [oldestTs, setOldestTs] = useState<string | null>(null)
@@ -104,6 +116,18 @@ export default function Home() {
         const data: ChatMessageType[] = await res.json()
         // Replace with initial chunk
         setMessages(data)
+        // Seed meta cache from initial batch
+        try {
+          setUserMeta(prev => {
+            const next = { ...prev }
+            for (const m of data) {
+              if (m.username && m.countryCode && !next[m.username]?.countryCode) {
+                next[m.username] = { ...(next[m.username] || {}), countryCode: m.countryCode }
+              }
+            }
+            return next
+          })
+        } catch {}
         setOldestTs(data[0]?.timestamp ? String(data[0].timestamp) : null)
         setOldestId(data[0]?._id ? String(data[0]._id) : null)
         setLatestTs(data[data.length - 1]?.timestamp ? String(data[data.length - 1].timestamp) : null)
@@ -176,6 +200,15 @@ export default function Home() {
             })
             return mergeUnique(filtered, [msg], 'append')
           })
+          // Update meta cache with any new country info
+          if (msg.username && msg.countryCode) {
+            setUserMeta(prev => {
+              const existed = prev[msg.username]?.countryCode
+              if (existed) return prev
+              const next = { ...prev, [msg.username]: { ...(prev[msg.username] || {}), countryCode: msg.countryCode } }
+              return next
+            })
+          }
           setLatestTs(prevTs => {
             const prevTime = prevTs ? new Date(prevTs).getTime() : 0
             const t1 = new Date(String(msg.timestamp)).getTime()
@@ -298,6 +331,8 @@ export default function Home() {
         countryCode: countryCode || undefined,
         replyTo: reply || undefined,
       }
+      // Ensure our own meta is cached so our messages always show name/flag without waiting
+      setUserMeta(prev => ({ ...prev, [user.username]: { ...(prev[user.username] || {}), countryCode: countryCode || prev[user.username]?.countryCode } }))
       setMessages(prev => mergeUnique(prev, [tempMessage], 'append'))
       setLatestTs(String(tempMessage.timestamp))
       // Ensure the new message is visible immediately (no smooth animation)
@@ -325,6 +360,10 @@ export default function Home() {
           const filtered = prev.filter(m => m._id !== tempId && m._id !== newMessage._id && m.clientTempId !== newMessage.clientTempId)
           return mergeUnique(filtered, [newMessage], 'append')
         })
+        // Reconfirm meta from server response if present
+        if (newMessage?.username && newMessage?.countryCode) {
+          setUserMeta(prev => ({ ...prev, [newMessage.username]: { ...(prev[newMessage.username] || {}), countryCode: newMessage.countryCode } }))
+        }
         if (newMessage?.timestamp) setLatestTs(String(newMessage.timestamp))
         setReplyTo(undefined)
       } else {
@@ -408,6 +447,15 @@ export default function Home() {
       window.removeEventListener('beforeunload', onUnload)
     }
   }, [sessionId, user?.username])
+
+  // Persist userMeta to localStorage
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('glcr_user_meta_v1', JSON.stringify(userMeta))
+      }
+    } catch {}
+  }, [userMeta])
 
   // Post typing indicator (debounced and state-deduped)
   const postTyping = useCallback(async (isTyping: boolean) => {
@@ -496,7 +544,7 @@ export default function Home() {
                   key={message._id || `${message.username}-${String(message.timestamp)}`}
                   message={message}
                   currentUsername={user?.username}
-                  currentUserCountry={countryCode || undefined}
+                  authorCountryCode={userMeta[message.username]?.countryCode}
                   index={index}
                   onReply={(info) => setReplyTo(info)}
                   onEdited={(updated) => {
