@@ -204,10 +204,10 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       if (typingIdleTimerRef.current) {
         window.clearTimeout(typingIdleTimerRef.current)
       }
-      // Short idle so indicator clears quickly when user stops
+      // Short idle so indicator clears quickly when user stops (~800ms)
       typingIdleTimerRef.current = window.setTimeout(() => {
         onTyping(false)
-      }, 600)
+      }, 800)
     }
     // No automatic hyperlinking; links are inserted only via the Insert Link dialog (⌘K / Ctrl+K)
   }
@@ -283,6 +283,8 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       // Clear editor
       const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
       q?.setText('')
+      // Refocus editor after send for rapid consecutive messages
+      q?.focus()
       if (onCancelReply) onCancelReply()
       
       // Stop typing when sending

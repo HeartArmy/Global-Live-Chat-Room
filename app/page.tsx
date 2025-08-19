@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import Pusher from 'pusher-js'
 import { motion, AnimatePresence } from 'framer-motion'
 import AuthModal from '@/components/AuthModal'
 import ChatMessage from '@/components/ChatMessage'
@@ -43,6 +44,7 @@ export default function Home() {
   const lastTypingPostRef = useRef(0)
   const lastTypingStateRef = useRef<boolean>(false)
   const esConnectedRef = useRef<boolean>(true)
+  const realtimeConnectedRef = useRef<boolean>(false)
   const lastPollAtRef = useRef<number>(0)
   const [realtimeStatus, setRealtimeStatus] = useState<'connected' | 'polling'>('polling')
 
@@ -175,7 +177,8 @@ export default function Home() {
       // Only poll when tab visible
       if (typeof document === 'undefined' || document.visibilityState === 'visible') {
         const now = Date.now()
-        const minGap = esConnectedRef.current ? 1500 : 500
+        const connected = esConnectedRef.current || realtimeConnectedRef.current
+        const minGap = connected ? 1500 : 500
         if (now - lastPollAtRef.current >= minGap) {
           lastPollAtRef.current = now
           pollNewer()
@@ -235,7 +238,7 @@ export default function Home() {
     es.onerror = () => {
       // let browser auto-reconnect; mark disconnected to tighten polling
       esConnectedRef.current = false
-      setRealtimeStatus('polling')
+      if (!realtimeConnectedRef.current) setRealtimeStatus('polling')
     }
     return () => {
       es.removeEventListener('message_created', onCreated)
@@ -243,6 +246,90 @@ export default function Home() {
       es.removeEventListener('message_updated', onUpdated)
       es.removeEventListener('typing_update', onTyping)
       es.close()
+    }
+  }, [user?.username])
+
+  // Pusher Channels subscription for cross-instance realtime
+  useEffect(() => {
+    // Configure from env via NEXT_PUBLIC_*
+    const key = process.env.NEXT_PUBLIC_PUSHER_KEY
+    const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER
+    if (!key || !cluster) return
+
+    // Avoid duplicate connections
+    let pusher: Pusher | null = null
+    let channel: Pusher.Channel | null = null
+
+    try {
+      pusher = new Pusher(key, {
+        cluster,
+        forceTLS: true,
+        enabledTransports: ['ws', 'wss'],
+      })
+
+      pusher.connection.bind('connected', () => {
+        realtimeConnectedRef.current = true
+        setRealtimeStatus('connected')
+      })
+      pusher.connection.bind('disconnected', () => {
+        realtimeConnectedRef.current = false
+        if (!esConnectedRef.current) setRealtimeStatus('polling')
+      })
+      pusher.connection.bind('error', () => {
+        // Do not flip status if SSE is connected
+        if (!esConnectedRef.current) setRealtimeStatus('polling')
+      })
+
+      channel = pusher.subscribe('chat-global')
+
+      const handleMerge = (incoming: any) => {
+        try {
+          const msg = incoming as ChatMessageType
+          setMessages(prev => {
+            const filtered = prev.filter(m => {
+              if (msg.clientTempId && m.clientTempId === msg.clientTempId) return false
+              if (msg._id && m._id === msg._id) return false
+              return true
+            })
+            return mergeUnique(filtered, [msg], 'append')
+          })
+          setLatestTs(prevTs => {
+            const prevTime = prevTs ? new Date(prevTs).getTime() : 0
+            const t1 = new Date(String(msg.timestamp)).getTime()
+            const t2 = (msg as any).updatedAt ? new Date(String((msg as any).updatedAt)).getTime() : t1
+            const maxTs = Math.max(prevTime, t1, t2)
+            return maxTs > prevTime ? new Date(maxTs).toISOString() : (prevTs || null)
+          })
+        } catch {}
+      }
+
+      const onCreated = (data: any) => handleMerge(data)
+      const onEdited = (data: any) => handleMerge(data)
+      const onUpdated = (data: any) => handleMerge(data)
+      const onTyping = (data: any) => {
+        try {
+          const d = data as { users: string[]; count: number }
+          setTypingUsers((d.users || []).filter(u => u && u !== (user?.username || '')))
+        } catch {}
+      }
+
+      channel.bind('message_created', onCreated)
+      channel.bind('message_edited', onEdited)
+      channel.bind('message_updated', onUpdated)
+      channel.bind('typing_update', onTyping)
+
+      return () => {
+        try {
+          channel?.unbind('message_created', onCreated)
+          channel?.unbind('message_edited', onEdited)
+          channel?.unbind('message_updated', onUpdated)
+          channel?.unbind('typing_update', onTyping)
+          if (pusher && channel) pusher.unsubscribe('chat-global')
+          if (pusher) pusher.disconnect()
+        } catch {}
+      }
+    } catch {
+      return
     }
   }, [user?.username])
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/mongodb'
 import { publish } from '@/lib/events'
+import { getPusher, PUSHER_CHANNEL, EVENT_TYPING_UPDATE } from '@/lib/pusher'
 
 const WINDOW_MS = 60 * 1000 // consider user active if seen in last 60s
 
@@ -17,7 +18,12 @@ function pruneTyping(staleMs = 1200) {
 
 function broadcastTyping() {
   const users = Array.from(new Set(Array.from(typingBySession.values()).map(v => v.username).filter(Boolean)))
-  publish({ type: 'typing_update', payload: { users, count: users.length } })
+  const payload = { users, count: users.length }
+  publish({ type: 'typing_update', payload })
+  try {
+    const p = getPusher()
+    if (p) void p.trigger(PUSHER_CHANNEL, EVENT_TYPING_UPDATE, payload)
+  } catch {}
 }
 
 export async function GET() {

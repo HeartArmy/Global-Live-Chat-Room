@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { publish } from '@/lib/events'
+import { getPusher, PUSHER_CHANNEL, EVENT_MESSAGE_CREATED, EVENT_MESSAGE_UPDATED, EVENT_MESSAGE_EDITED } from '@/lib/pusher'
 export const dynamic = 'force-dynamic'
 import { getDatabase } from '@/lib/mongodb'
 import { ChatMessage } from '@/types/chat'
@@ -143,15 +144,24 @@ export async function POST(request: NextRequest) {
 
     // Optimistic broadcast to all clients BEFORE DB insert
     if (clientTempId) {
-      publish({ type: 'message_created', payload: { ...newMessage, clientTempId } })
+      const optimisticPayload = { ...newMessage, clientTempId }
+      publish({ type: 'message_created', payload: optimisticPayload })
+      try {
+        const p = getPusher()
+        if (p) await p.trigger(PUSHER_CHANNEL, EVENT_MESSAGE_CREATED, optimisticPayload)
+      } catch {}
     }
 
     const db = await getDatabase()
     const result = await db.collection('messages').insertOne(newMessage)
 
     const created = { _id: result.insertedId.toString(), ...newMessage, clientTempId }
-    // Broadcast canonical creation (will reconcile by clientTempId on clients)
     publish({ type: 'message_created', payload: created })
+    try {
+      const p = getPusher()
+      if (p) await p.trigger(PUSHER_CHANNEL, EVENT_MESSAGE_CREATED, created)
+    } catch {}
+    // Broadcast canonical creation (will reconcile by clientTempId on clients)
     // Fire-and-throttle admin email notifications (non-blocking) when sender is not 'arham'
     ;(async () => {
       try {
