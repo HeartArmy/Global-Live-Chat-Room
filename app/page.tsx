@@ -33,7 +33,7 @@ export default function Home() {
   // Pagination state
   const [oldestTs, setOldestTs] = useState<string | null>(null)
   const [oldestId, setOldestId] = useState<string | null>(null)
-  const [latestTs, setLatestTs] = useState<string | null>(null)
+  const [, setLatestTs] = useState<string | null>(null)
   const [isLoadingOlder, setIsLoadingOlder] = useState(false)
   const [hasMoreOlder, setHasMoreOlder] = useState(true)
   // Stable session id for presence tracking
