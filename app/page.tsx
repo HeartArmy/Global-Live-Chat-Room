@@ -216,11 +216,24 @@ export default function Home() {
       pusher = new Pusher(key, {
         cluster,
         forceTLS: true,
-        enabledTransports: ['ws', 'wss'],
+        // Allow default fallback transports on mobile (xhr_streaming/xhr_polling)
+        // by not restricting enabledTransports.
+        disableStats: true,
       })
 
-      // Optional: silence logs in production
-      // Pusher.logToConsole = false
+      // Dev-only: light connection state logging for diagnostics
+      if (process.env.NODE_ENV !== 'production') {
+        try {
+          pusher.connection.bind('state_change', (states: any) => {
+            // eslint-disable-next-line no-console
+            console.debug('[pusher] state', states?.previous, '->', states?.current)
+          })
+          pusher.connection.bind('error', (err: any) => {
+            // eslint-disable-next-line no-console
+            console.debug('[pusher] error', err)
+          })
+        } catch {}
+      }
 
       channel = pusher.subscribe('chat-global')
 
