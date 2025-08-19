@@ -56,6 +56,48 @@ export default function Home() {
     } catch {}
     return {}
   })
+
+  // iOS-only: lock zoom (prevent pinch/auto-zoom) and maintain visibility while typing
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || typeof document === 'undefined') return
+    const ua = navigator.userAgent || ''
+    const isiOS = /iPhone|iPad|iPod/i.test(ua)
+    if (!isiOS) return
+
+    // Lock viewport zoom similar to WhatsApp
+    const meta = document.querySelector('meta[name="viewport"]') as HTMLMetaElement | null
+    const orig = meta?.getAttribute('content') || ''
+    const desired = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'
+    if (meta) meta.setAttribute('content', desired)
+
+    // Keep message list padded and pinned when keyboard opens
+    const vv: VisualViewport | undefined = (window as any).visualViewport
+    const applyLayout = () => {
+      try {
+        if (messagesContainerRef.current) {
+          const base = 96 // input + toolbar height allowance
+          messagesContainerRef.current.style.paddingBottom = `${base}px`
+        }
+      } catch {}
+    }
+    const onVv = () => {
+      applyLayout()
+      if (isNearBottom && messagesEndRef.current) {
+        try { messagesEndRef.current.scrollIntoView({ block: 'end', behavior: 'auto' }) } catch {}
+      }
+    }
+    applyLayout()
+    vv?.addEventListener('resize', onVv)
+    vv?.addEventListener('scroll', onVv)
+    window.addEventListener('orientationchange', onVv)
+
+    return () => {
+      if (meta && orig) meta.setAttribute('content', orig)
+      vv?.removeEventListener('resize', onVv)
+      vv?.removeEventListener('scroll', onVv)
+      window.removeEventListener('orientationchange', onVv)
+    }
+  }, [isNearBottom])
   // Removed time rate-limit; rely on isLoadingOlder guard
   // Pagination state
   const [oldestTs, setOldestTs] = useState<string | null>(null)
@@ -241,6 +283,7 @@ export default function Home() {
         ...(isIOSMobile ? ({ enabledTransports: ['ws', 'wss'] } as unknown as Record<string, unknown>) : {}),
         disableStats: true,
       })
+
 
       // Dev-only: light connection state logging for diagnostics
       if (process.env.NODE_ENV !== 'production') {

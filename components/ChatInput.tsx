@@ -57,7 +57,6 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   // Typing timers
   const typingIdleTimerRef = useRef<number | null>(null)
   const [isIOSMobile, setIsIOSMobile] = useState(false)
-  const [isSmallViewport, setIsSmallViewport] = useState(false)
 
   // Detect iOS mobile once on mount
   useEffect(() => {
@@ -66,16 +65,6 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       const isIOS = /iPhone|iPad|iPod/.test(ua)
       const isMobile = /Mobile|iPhone|iPod|Android|BlackBerry|IEMobile|Silk/.test(ua)
       setIsIOSMobile(isIOS && isMobile)
-      const setVW = () => setIsSmallViewport(typeof window !== 'undefined' ? window.innerWidth <= 390 : false)
-      setVW()
-      if (typeof window !== 'undefined') {
-        window.addEventListener('resize', setVW)
-      }
-      return () => {
-        if (typeof window !== 'undefined') {
-          window.removeEventListener('resize', setVW)
-        }
-      }
     } catch {
       setIsIOSMobile(false)
     }
@@ -239,11 +228,10 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       if (typingIdleTimerRef.current) {
         window.clearTimeout(typingIdleTimerRef.current)
       }
-      // Short idle so indicator clears quickly; tighter on small viewports
-      const idleMs = (isIOSMobile || isSmallViewport) ? 500 : 800
+      // Short idle so indicator clears quickly when user stops (~800ms)
       typingIdleTimerRef.current = window.setTimeout(() => {
         onTyping(false)
-      }, idleMs)
+      }, 800)
     }
     // No automatic hyperlinking; links are inserted only via the Insert Link dialog (⌘K / Ctrl+K)
   }
@@ -417,15 +405,14 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
 
   // Paste uploads will be handled by posting to our server route
 
-  const motionReduced = isIOSMobile || isSmallViewport
-  const editorClass = `rounded-2xl min-h-12 max-h-32 overflow-y-auto px-4 ${motionReduced ? 'py-2 leading-5' : 'py-3 leading-6'} text-xs bg-transparent w-full`
-
   return (
     <motion.form
       id="chat-input-form"
       onSubmit={handleSubmit}
       className="flex items-center gap-2 p-4 glass-effect border-t border-pastel-gray/50"
-      {...(!motionReduced ? { initial: { y: 50, opacity: 0 }, animate: { y: 0, opacity: 1 }, transition: { delay: 0.3 } } : {})}
+      initial={isIOSMobile ? { y: 0, opacity: 1 } : { y: 50, opacity: 0 }}
+      animate={isIOSMobile ? { y: 0, opacity: 1 } : { y: 0, opacity: 1 }}
+      transition={isIOSMobile ? { duration: 0 } : { delay: 0.3 }}
     >
       <div className="flex-1 relative min-w-0">
         {replyTo && (
@@ -699,7 +686,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             value={html}
             onChange={handleQuillChange}
             modules={modules}
-            className={editorClass}
+            className="rounded-2xl min-h-12 max-h-32 overflow-y-auto px-4 py-3 text-xs bg-transparent w-full"
             onBlur={() => { if (onTyping) onTyping(false) }}
             onFocus={() => { if (onTyping) onTyping(true) }}
           />
@@ -775,12 +762,12 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       <motion.button
         type="submit"
         disabled={(plainText.trim().length === 0 && !(/<img\b/i.test(html))) || disabled || isUploading}
-        {...(!motionReduced ? { whileHover: { scale: 1.05 }, whileTap: { scale: 0.95 } } : {})}
+        whileHover={isIOSMobile ? undefined : { scale: 1.05 }}
+        whileTap={isIOSMobile ? undefined : { scale: 0.95 }}
         className="bg-pastel-blue hover:bg-blue-500 text-gray-100 h-12 w-12 rounded-2xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-pastel-blue/60 focus:ring-offset-2 focus:ring-offset-pastel-ink"
         onClick={(e) => {
-          // On some iOS WebKit builds, contenteditable focus can prevent form submission.
-          // Explicitly dispatch submit for reliability on iPhone.
-          const form = document.getElementById('chat-input-form') as HTMLFormElement | null
+          // Ensure submit fires on iOS tap
+          const form = (e.currentTarget.closest('form') as HTMLFormElement | null) || document.getElementById('chat-input-form') as HTMLFormElement | null
           if (form) {
             form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
           }
