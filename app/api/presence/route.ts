@@ -42,47 +42,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'sessionId required' }, { status: 400 })
     }
 
-    const db = await getDatabase()
-
-    // Update heartbeat presence in DB
-    await db.collection('presence').updateOne(
-      { sessionId },
-      {
-        $set: {
-          sessionId,
-          username: username || null,
-          lastSeen: new Date(),
-        },
-        $setOnInsert: {
-          createdAt: new Date(),
-        },
-      },
-      { upsert: true }
-    )
-
-    // Handle typing state (best-effort, in-memory)
+    // Always process typing first (does not depend on DB)
     if (typeof isTyping === 'boolean' && username) {
       if (isTyping) {
         typingBySession.set(sessionId, { username, last: Date.now() })
       } else {
         typingBySession.delete(sessionId)
       }
-      pruneTyping()
-      broadcastTyping()
-    } else {
-      // Prune occasionally even on non-typing heartbeats
-      pruneTyping()
-      broadcastTyping()
     }
+    // Prune and broadcast regardless
+    pruneTyping()
+    broadcastTyping()
 
-    // Optionally return current active count
-    const since = new Date(Date.now() - WINDOW_MS)
-    const activeCount = await db
-      .collection('presence')
-      .countDocuments({ lastSeen: { $gte: since } })
+    // Best-effort DB updates; failures should not block typing indicator
+    let activeCount: number | undefined = undefined
+    try {
+      const db = await getDatabase()
+      await db.collection('presence').updateOne(
+        { sessionId },
+        {
+          $set: {
+            sessionId,
+            username: username || null,
+            lastSeen: new Date(),
+          },
+          $setOnInsert: {
+            createdAt: new Date(),
+          },
+        },
+        { upsert: true }
+      )
+      const since = new Date(Date.now() - WINDOW_MS)
+      activeCount = await db
+        .collection('presence')
+        .countDocuments({ lastSeen: { $gte: since } })
+    } catch {
+      // ignore DB errors for typing endpoint
+    }
 
     return NextResponse.json({ ok: true, activeCount })
   } catch {
+    // Malformed request JSON
     return NextResponse.json({ ok: false }, { status: 200 })
   }
 }

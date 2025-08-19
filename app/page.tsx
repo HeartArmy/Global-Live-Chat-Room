@@ -186,8 +186,13 @@ export default function Home() {
     const es = new EventSource('/api/events')
     const handleMerge = (incoming: ChatMessageType) => {
       setMessages(prev => {
-        const merged = mergeUnique(prev, [incoming], 'append')
-        return merged
+        // Reconcile by clientTempId and _id to avoid duplicates across optimistic + canonical events
+        const filtered = prev.filter(m => {
+          if (incoming.clientTempId && m.clientTempId === incoming.clientTempId) return false
+          if (incoming._id && m._id === incoming._id) return false
+          return true
+        })
+        return mergeUnique(filtered, [incoming], 'append')
       })
       setLatestTs(prevTs => {
         const prevTime = prevTs ? new Date(prevTs).getTime() : 0
@@ -303,6 +308,7 @@ export default function Home() {
       const tz = (Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone) || 'UTC'
       const tempMessage: ChatMessageType = {
         _id: tempId,
+        clientTempId: tempId,
         username: user.username,
         message,
         html: html && html.trim().length ? html : undefined,
@@ -313,8 +319,8 @@ export default function Home() {
       }
       setMessages(prev => mergeUnique(prev, [tempMessage], 'append'))
       setLatestTs(String(tempMessage.timestamp))
-      // Ensure the new message is visible immediately
-      requestAnimationFrame(() => scrollToBottom())
+      // Ensure the new message is visible immediately (no smooth animation)
+      scrollToBottomInstant()
 
       // Ensure we have a country code; fetch on-demand if missing (non-blocking for UI)
       let cc = countryCode
@@ -339,6 +345,7 @@ export default function Home() {
           html: html && html.trim().length ? html : undefined,
           countryCode: cc || undefined,
           replyTo: reply || undefined,
+          clientTempId: tempId,
         }),
       })
 
@@ -346,7 +353,7 @@ export default function Home() {
         const newMessage = await response.json()
         // Reconcile: remove any duplicate with same _id (from SSE/poll), drop temp, then add one canonical
         setMessages(prev => {
-          const filtered = prev.filter(m => m._id !== tempId && m._id !== newMessage._id)
+          const filtered = prev.filter(m => m._id !== tempId && m._id !== newMessage._id && m.clientTempId !== newMessage.clientTempId)
           return mergeUnique(filtered, [newMessage], 'append')
         })
         if (newMessage?.timestamp) setLatestTs(String(newMessage.timestamp))

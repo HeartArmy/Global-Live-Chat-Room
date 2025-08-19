@@ -74,7 +74,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { username, message, html, replyTo, countryCode } = body
+    const { username, message, html, replyTo, countryCode, clientTempId } = body as {
+      username?: string
+      message?: string
+      html?: string
+      replyTo?: unknown
+      countryCode?: string
+      clientTempId?: string
+    }
 
     if (!username || !message) {
       return NextResponse.json(
@@ -98,7 +105,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { timestamp, timezone } = getCurrentTimestamp()
-    
+
     const cc = typeof countryCode === 'string' ? countryCode.trim().toUpperCase() : undefined
     const validCC = cc && /^[A-Z]{2}$/.test(cc) ? cc : undefined
     // Fallback: try to infer from edge/CDN headers if client couldn't send it
@@ -111,6 +118,18 @@ export async function POST(request: NextRequest) {
     const headerCC = /^[A-Z]{2}$/.test(headerCountryRaw) ? headerCountryRaw : undefined
     const finalCC = validCC || headerCC
 
+    // Safely normalize reply info from untyped JSON
+    let safeReply: ChatMessage['replyTo'] = undefined
+    if (replyTo && typeof replyTo === 'object') {
+      const r = replyTo as Record<string, unknown>
+      safeReply = {
+        id: String(r.id ?? ''),
+        username: String(r.username ?? ''),
+        preview: String(r.preview ?? ''),
+        imageUrl: typeof r.imageUrl === 'string' ? r.imageUrl : undefined,
+      }
+    }
+
     const newMessage: Omit<ChatMessage, '_id'> = {
       username: username.trim(),
       message: message.trim(),
@@ -119,19 +138,19 @@ export async function POST(request: NextRequest) {
       timezone,
       countryCode: finalCC,
       updatedAt: timestamp,
-      replyTo: replyTo && typeof replyTo === 'object' ? {
-        id: String(replyTo.id || ''),
-        username: String(replyTo.username || ''),
-        preview: String(replyTo.preview || ''),
-        imageUrl: replyTo.imageUrl ? String(replyTo.imageUrl) : undefined,
-      } : undefined,
+      replyTo: safeReply,
+    }
+
+    // Optimistic broadcast to all clients BEFORE DB insert
+    if (clientTempId) {
+      publish({ type: 'message_created', payload: { ...newMessage, clientTempId } })
     }
 
     const db = await getDatabase()
     const result = await db.collection('messages').insertOne(newMessage)
 
-    const created = { _id: result.insertedId.toString(), ...newMessage }
-    // Broadcast creation
+    const created = { _id: result.insertedId.toString(), ...newMessage, clientTempId }
+    // Broadcast canonical creation (will reconcile by clientTempId on clients)
     publish({ type: 'message_created', payload: created })
     // Fire-and-throttle admin email notifications (non-blocking) when sender is not 'arham'
     ;(async () => {

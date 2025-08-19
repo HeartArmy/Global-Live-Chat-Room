@@ -7,6 +7,7 @@ export interface ReplyInfo {
 
 export interface ChatMessage {
   _id?: string
+  clientTempId?: string
   username: string
   message: string
   html?: string
