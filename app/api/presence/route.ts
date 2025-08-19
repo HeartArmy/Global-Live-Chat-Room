@@ -7,6 +7,9 @@ const WINDOW_MS = 60 * 1000 // consider user active if seen in last 60s
 // In-memory typing tracker (per server instance)
 // Keyed by sessionId to avoid duplicate entries per user if they reconnect
 const typingBySession = new Map<string, { username: string; last: number }>()
+// Throttle/dedupe state for broadcasts
+let lastBroadcastAt = 0
+let lastUsersJSON = '[]'
 
 function pruneTyping(staleMs = 1200) {
   const now = Date.now()
@@ -17,6 +20,13 @@ function pruneTyping(staleMs = 1200) {
 
 function broadcastTyping() {
   const users = Array.from(new Set(Array.from(typingBySession.values()).map(v => v.username).filter(Boolean)))
+  const usersJSON = JSON.stringify(users)
+  const now = Date.now()
+  const THROTTLE_MS = 300
+  // Dedupe: only send if user set changed; Throttle: and no more often than THROTTLE_MS
+  if (usersJSON === lastUsersJSON && now - lastBroadcastAt < THROTTLE_MS) return
+  lastUsersJSON = usersJSON
+  lastBroadcastAt = now
   const payload = { users, count: users.length }
   try {
     const p = getPusher()

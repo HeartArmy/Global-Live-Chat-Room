@@ -141,23 +141,16 @@ export async function POST(request: NextRequest) {
       replyTo: safeReply,
     }
 
-    // Optimistic broadcast to all clients BEFORE DB insert (Pusher only)
-    if (clientTempId) {
-      const optimisticPayload = { ...newMessage, clientTempId }
-      try {
-        const p = getPusher()
-        if (p) void p.trigger(PUSHER_CHANNEL, EVENT_MESSAGE_CREATED, optimisticPayload)
-      } catch {}
-    }
-
     const db = await getDatabase()
-    const result = await db.collection('messages').insertOne(newMessage)
-
-    const created = { _id: result.insertedId.toString(), ...newMessage, clientTempId }
+    // Pre-generate id so we can broadcast immediately with the final id
+    const newId = new ObjectId()
+    const created = { _id: newId.toString(), ...newMessage, clientTempId }
     try {
       const p = getPusher()
       if (p) void p.trigger(PUSHER_CHANNEL, EVENT_MESSAGE_CREATED, created)
     } catch {}
+    // Insert with the same id; we don't block the broadcast on DB latency
+    await db.collection('messages').insertOne({ _id: newId, ...newMessage })
     // Broadcast canonical creation (will reconcile by clientTempId on clients)
     // Fire-and-throttle admin email notifications (non-blocking) when sender is not 'arham'
     ;(async () => {
