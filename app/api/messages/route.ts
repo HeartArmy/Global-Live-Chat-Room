@@ -83,7 +83,13 @@ export async function POST(request: NextRequest) {
       clientTempId?: string
     }
 
-    if (!username || !message) {
+    // Fallback to cookies for username/cc if not present in body (mobile phones send fewer fields)
+    const cookieUsername = request.cookies.get('glcr_username')?.value
+    const cookieCC = request.cookies.get('glcr_cc')?.value
+
+    const finalUsername = (username || cookieUsername || '').trim()
+
+    if (!finalUsername || !message) {
       return NextResponse.json(
         { error: 'Username and message are required' },
         { status: 400 }
@@ -97,7 +103,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (username.length > 20) {
+    if (finalUsername.length > 20) {
       return NextResponse.json(
         { error: 'Username too long (max 20 characters)' },
         { status: 400 }
@@ -106,7 +112,8 @@ export async function POST(request: NextRequest) {
 
     const { timestamp, timezone } = getCurrentTimestamp()
 
-    const cc = typeof countryCode === 'string' ? countryCode.trim().toUpperCase() : undefined
+    const ccSource = typeof countryCode === 'string' && countryCode ? countryCode : (cookieCC || undefined)
+    const cc = typeof ccSource === 'string' ? ccSource.trim().toUpperCase() : undefined
     const validCC = cc && /^[A-Z]{2}$/.test(cc) ? cc : undefined
     // Fallback: try to infer from edge/CDN headers if client couldn't send it
     const headerCountryRaw = (
@@ -131,7 +138,7 @@ export async function POST(request: NextRequest) {
     }
 
     const newMessage: Omit<ChatMessage, '_id'> = {
-      username: username.trim(),
+      username: finalUsername,
       message: message.trim(),
       html: typeof html === 'string' && html.trim().length ? html.trim() : undefined,
       timestamp,

@@ -179,6 +179,12 @@ export default function Home() {
         const parsed = JSON.parse(cached)
         if (parsed && typeof parsed === 'object' && typeof parsed.countryCode === 'string') {
           setCountryCode(parsed.countryCode)
+          // Mirror to cookie for server-side access
+          try {
+            const days = 14
+            const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString()
+            document.cookie = `glcr_cc=${encodeURIComponent(parsed.countryCode)}; Expires=${expires}; Path=/; SameSite=Lax`
+          } catch {}
         }
       } else {
         fetch('/api/geo')
@@ -190,6 +196,14 @@ export default function Home() {
               if (typeof window !== 'undefined') {
                 window.sessionStorage.setItem('glcr_geo_v1', JSON.stringify({ countryCode: cc }))
               }
+              // Also set a cookie for server access
+              try {
+                if (cc) {
+                  const days = 14
+                  const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString()
+                  document.cookie = `glcr_cc=${encodeURIComponent(cc)}; Expires=${expires}; Path=/; SameSite=Lax`
+                }
+              } catch {}
             } catch {}
           })
           .catch(() => {})
@@ -213,29 +227,34 @@ export default function Home() {
     let channel: Channel | null = null
 
     try {
+      // Detect iOS to force WebSocket-only there; keep desktop defaults unchanged
+      const isIOSMobile = (() => {
+        if (typeof navigator === 'undefined') return false
+        const ua = navigator.userAgent || ''
+        return /iPhone|iPad|iPod/i.test(ua)
+      })()
+
       pusher = new Pusher(key, {
         cluster,
         forceTLS: true,
-        // Allow default fallback transports on mobile (xhr_streaming/xhr_polling)
-        // by not restricting enabledTransports.
+        // On mobile iOS, do not allow xhr fallbacks; enforce websocket-only per request
+        ...(isIOSMobile ? ({ enabledTransports: ['ws', 'wss'] } as unknown as Record<string, unknown>) : {}),
         disableStats: true,
       })
 
       // Dev-only: light connection state logging for diagnostics
       if (process.env.NODE_ENV !== 'production') {
         try {
-          pusher.connection.bind('state_change', (states: any) => {
+          pusher.connection.bind('state_change', (states: { previous?: string; current?: string }) => {
             // eslint-disable-next-line no-console
             console.debug('[pusher] state', states?.previous, '->', states?.current)
           })
-          pusher.connection.bind('error', (err: any) => {
+          pusher.connection.bind('error', (err: unknown) => {
             // eslint-disable-next-line no-console
             console.debug('[pusher] error', err)
           })
         } catch {}
       }
-
-      channel = pusher.subscribe('chat-global')
 
       const handleMerge = (incoming: ChatMessageType) => {
         try {
@@ -276,17 +295,52 @@ export default function Home() {
         } catch {}
       }
 
-      channel.bind('message_created', onCreated)
-      channel.bind('message_edited', onEdited)
-      channel.bind('message_updated', onUpdated)
-      channel.bind('typing_update', onTyping)
+      const bindHandlers = (ch: Channel) => {
+        ch.bind('message_created', onCreated)
+        ch.bind('message_edited', onEdited)
+        ch.bind('message_updated', onUpdated)
+        ch.bind('typing_update', onTyping)
+      }
+
+      const unbindHandlers = (ch: Channel | null) => {
+        try {
+          ch?.unbind('message_created', onCreated)
+          ch?.unbind('message_edited', onEdited)
+          ch?.unbind('message_updated', onUpdated)
+          ch?.unbind('typing_update', onTyping)
+        } catch {}
+      }
+
+      const subscribeChannel = () => {
+        try {
+          const ch = pusher!.subscribe('chat-global')
+          bindHandlers(ch)
+          return ch
+        } catch {
+          return null
+        }
+      }
+
+      channel = subscribeChannel()
+
+      // Reconnect guard: on connection back to connected, resubscribe and rebind to avoid missed events
+      try {
+        pusher.connection.bind('state_change', (states: { previous?: string; current?: string }) => {
+          if (states?.current === 'connected') {
+            try {
+              unbindHandlers(channel)
+              if (channel) {
+                pusher?.unsubscribe('chat-global')
+              }
+              channel = subscribeChannel()
+            } catch {}
+          }
+        })
+      } catch {}
 
       return () => {
         try {
-          channel?.unbind('message_created', onCreated)
-          channel?.unbind('message_edited', onEdited)
-          channel?.unbind('message_updated', onUpdated)
-          channel?.unbind('typing_update', onTyping)
+          unbindHandlers(channel)
           // Avoid unsubscribe() on closing/closed sockets; disconnect handles teardown safely
           if (pusher) pusher.disconnect()
         } catch {}
@@ -386,19 +440,39 @@ export default function Home() {
       // Ensure the new message is visible immediately (no smooth animation)
       scrollToBottomInstant()
 
+      // (removed old isIOSMobile; using isMobileCookieMode below)
+
+      // Detect mobile (iOS/Android) to use cookie-mode payload (omit username/countryCode)
+      const isMobileCookieMode = (() => {
+        if (typeof navigator === 'undefined') return false
+        const ua = navigator.userAgent || ''
+        return /iPhone|iPad|iPod|Android/i.test(ua)
+      })()
+
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          username: user.username,
-          message,
-          html: html && html.trim().length ? html : undefined,
-          countryCode: countryCode || undefined,
-          replyTo: reply || undefined,
-          clientTempId: tempId,
-        }),
+        body: JSON.stringify(
+          isMobileCookieMode
+            ? {
+              // On mobile, rely on cookies for username and countryCode
+              message,
+              html: html && html.trim().length ? html : undefined,
+              replyTo: reply || undefined,
+              clientTempId: tempId,
+            }
+            : {
+              // Desktop (unchanged): include username and countryCode as before
+              username: user.username,
+              message,
+              html: html && html.trim().length ? html : undefined,
+              countryCode: countryCode || undefined,
+              replyTo: reply || undefined,
+              clientTempId: tempId,
+            }
+        ),
       })
 
       if (response.ok) {

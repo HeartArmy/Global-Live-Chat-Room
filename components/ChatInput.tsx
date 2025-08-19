@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import type ReactQuillType from 'react-quill'
 import type { ReactQuillProps, UnprivilegedEditor } from 'react-quill'
@@ -56,6 +56,19 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const lastSelectionRef = useRef<{ index: number; length: number } | null>(null)
   // Typing timers
   const typingIdleTimerRef = useRef<number | null>(null)
+  const [isIOSMobile, setIsIOSMobile] = useState(false)
+
+  // Detect iOS mobile once on mount
+  useEffect(() => {
+    try {
+      const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
+      const isIOS = /iPhone|iPad|iPod/.test(ua)
+      const isMobile = /Mobile|iPhone|iPod|Android|BlackBerry|IEMobile|Silk/.test(ua)
+      setIsIOSMobile(isIOS && isMobile)
+    } catch {
+      setIsIOSMobile(false)
+    }
+  }, [])
 
   const MAX_SIZE_BYTES = 1 * 1024 * 1024 // 1 MB
   const ACCEPT_TYPES = [
@@ -119,80 +132,91 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     lastSelectionRef.current = null
   }
 
-  // Quill modules and formats
-  const modules: ReactQuillProps['modules'] = {
-    toolbar: false,
-    history: { delay: 500, maxStack: 200, userOnly: true },
-    keyboard: {
-      bindings: {
-        handleEnter: {
-          key: 'Enter',
-          shiftKey: false,
-          handler: () => {
-            const form = document.getElementById('chat-input-form') as HTMLFormElement | null
-            form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
-            return false
+  // Quill modules and formats (conditional Enter behavior)
+  const modules: ReactQuillProps['modules'] = useMemo(() => {
+    type KeyboardHandler = {
+      key: string | number
+      shortKey?: boolean
+      shiftKey?: boolean
+      handler: () => boolean
+    }
+    type KeyboardBindings = Record<string, KeyboardHandler>
+    const bindings: KeyboardBindings = {
+      // Sending via Ctrl/Cmd+Enter is always available
+      sendWithCmdOrCtrlEnter: {
+        key: 'Enter',
+        shortKey: true,
+        handler: () => {
+          const form = document.getElementById('chat-input-form') as HTMLFormElement | null
+          form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+          return false
+        }
+      },
+      // Undo Cmd/Ctrl+Z
+      undo: {
+        key: 'Z', shortKey: true, shiftKey: false,
+        handler: () => {
+          const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+          // @ts-expect-error history module
+          q?.history?.undo?.(); return false
+        }
+      },
+      // Redo Cmd/Ctrl+Shift+Z
+      redo: {
+        key: 'Z', shortKey: true, shiftKey: true,
+        handler: () => {
+          const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+          // @ts-expect-error history module
+          q?.history?.redo?.(); return false
+        }
+      },
+      // Redo Ctrl+Y (Windows/Linux)
+      redoCtrlY: {
+        key: 'Y', shortKey: true, shiftKey: false,
+        handler: () => {
+          const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+          // @ts-expect-error history module
+          q?.history?.redo?.(); return false
+        }
+      },
+      // Insert Link: Cmd/Ctrl+K
+      insertLink: {
+        key: 'K', shortKey: true, shiftKey: false,
+        handler: () => {
+          if (disabled) return false
+          const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+          const sel = q?.getSelection()
+          if (q) {
+            lastSelectionRef.current = sel ? { index: sel.index, length: sel.length } : { index: q.getLength(), length: 0 }
           }
-        },
-        // Undo Cmd/Ctrl+Z
-        undo: {
-          key: 'Z',
-          shortKey: true,
-          shiftKey: false,
-          handler: () => {
-            const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
-            // @ts-expect-error history module
-            q?.history?.undo?.()
-            return false
-          }
-        },
-        // Redo Cmd/Ctrl+Shift+Z
-        redo: {
-          key: 'Z',
-          shortKey: true,
-          shiftKey: true,
-          handler: () => {
-            const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
-            // @ts-expect-error history module
-            q?.history?.redo?.()
-            return false
-          }
-        },
-        // Redo Ctrl+Y (Windows/Linux)
-        redoCtrlY: {
-          key: 'Y',
-          shortKey: true,
-          shiftKey: false,
-          handler: () => {
-            const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
-            // @ts-expect-error history module
-            q?.history?.redo?.()
-            return false
-          }
-        },
-        // Insert Link: Cmd/Ctrl + K opens link popover
-        insertLink: {
-          key: 'K',
-          shortKey: true,
-          shiftKey: false,
-          handler: () => {
-            if (disabled) return false
-            const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
-            const sel = q?.getSelection()
-            if (q) {
-              lastSelectionRef.current = sel ? { index: sel.index, length: sel.length } : { index: q.getLength(), length: 0 }
-            }
-            const selectedText = sel && sel.length ? q?.getText(sel.index, sel.length) || '' : ''
-            setLinkText((selectedText || '').trim())
-            setLinkUrl('')
-            setLinkError(null)
-            setShowLinkPopover(true)
-            return false
-          }
+          const selectedText = sel && sel.length ? q?.getText(sel.index, sel.length) || '' : ''
+          setLinkText((selectedText || '').trim())
+          setLinkUrl('')
+          setLinkError(null)
+          setShowLinkPopover(true)
+          return false
         }
       }
     }
-  }
+
+    // On desktop (non-iOS mobile), Enter submits like before
+    if (!isIOSMobile) {
+      bindings.handleEnter = {
+        key: 'Enter', shiftKey: false,
+        handler: () => {
+          const form = document.getElementById('chat-input-form') as HTMLFormElement | null
+          form?.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }))
+          return false
+        }
+      }
+    }
+
+    return {
+      toolbar: false,
+      history: { delay: 500, maxStack: 200, userOnly: true },
+      keyboard: { bindings }
+    }
+  }, [disabled, isIOSMobile])
 
   // Editor change handler
   const handleQuillChange = (value: string, _delta: unknown, _source: unknown, editor: UnprivilegedEditor) => {
@@ -230,6 +254,23 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
     const mo = new MutationObserver(() => stripTitles())
     mo.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['title'] })
     return () => mo.disconnect()
+  }, [quillRef])
+
+  // Improve mobile typing experience (especially iPhone):
+  // - Disable autocorrect/autocapitalize/spellcheck to avoid jumpy input
+  // - Prefer a newline enter key hint since Return inserts a newline on mobile
+  useEffect(() => {
+    const q: Quill | null = quillRef.current && (quillRef.current as unknown as ReactQuillType).getEditor ? (quillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+    if (!q) return
+    const root = q.root as HTMLElement
+    try {
+      root.setAttribute('autocapitalize', 'off')
+      root.setAttribute('autocorrect', 'off')
+      root.setAttribute('spellcheck', 'false')
+      root.setAttribute('enterkeyhint', 'newline')
+      // Keep text input mode, not numeric/email, to stabilize iOS keyboard
+      root.setAttribute('inputmode', 'text')
+    } catch {}
   }, [quillRef])
 
   const handleFilesUpload = async (files: File[]) => {

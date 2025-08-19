@@ -82,6 +82,12 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
       try {
         if (typeof window !== 'undefined') {
           window.localStorage.setItem('glcr_username_v1', username.trim())
+          // Also cache in a cookie for server access (14 days)
+          try {
+            const days = 14
+            const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString()
+            document.cookie = `glcr_username=${encodeURIComponent(username.trim())}; Expires=${expires}; Path=/; SameSite=Lax`
+          } catch {}
         }
       } catch {}
       setIsLoading(false)
