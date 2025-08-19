@@ -187,6 +187,13 @@ export default function ChatMessage({ message, currentUsername, authorCountryCod
         
         {/* Message bubble */}
         <div className="flex flex-col">
+          {/* Author name + flag moved ABOVE bubble */}
+          <div className={`flex items-center gap-2 mb-1 text-xs text-gray-400 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+            <span className="inline-flex items-center gap-1 max-w-[50vw] truncate">
+              <span className="opacity-90">{countryCodeToFlag(authorCountryCode)}</span>
+              <span className="font-medium text-gray-500 dark:text-gray-300 truncate" title={message.username}>{message.username}</span>
+            </span>
+          </div>
           <div className={`relative chat-bubble ${isCurrentUser ? 'chat-bubble-user' : 'chat-bubble-other'}`}>
             {/* Quick reactions on hover: left of the bubble */}
             {onToggleReaction && message._id && (
@@ -406,16 +413,10 @@ export default function ChatMessage({ message, currentUsername, authorCountryCod
               </div>
             </div>
           </div>
-          {/* Secondary metadata row */}
+          {/* Secondary metadata row (below bubble) */}
           <div className={`relative flex items-center gap-2 mt-1 text-xs text-gray-400 ${
             isCurrentUser ? 'flex-row-reverse' : 'flex-row'
           }`}>
-            {/* Author name + flag */}
-            <span className="inline-flex items-center gap-1 max-w-[50vw] truncate">
-              <span className="opacity-90">{countryCodeToFlag(authorCountryCode)}</span>
-              <span className="font-medium text-gray-500 dark:text-gray-300 truncate" title={message.username}>{message.username}</span>
-            </span>
-            <span>•</span>
             <span title={formatAbsolute(new Date(message.timestamp))}>
               {formatTimestamp(new Date(message.timestamp))}
             </span>
