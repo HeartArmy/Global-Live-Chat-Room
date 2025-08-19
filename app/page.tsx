@@ -44,6 +44,7 @@ export default function Home() {
   const lastTypingStateRef = useRef<boolean>(false)
   const esConnectedRef = useRef<boolean>(true)
   const lastPollAtRef = useRef<number>(0)
+  const [realtimeStatus, setRealtimeStatus] = useState<'connected' | 'polling'>('polling')
 
   // Auto-scroll to bottom
   const scrollToBottom = () => {
@@ -230,10 +231,11 @@ export default function Home() {
     es.addEventListener('message_edited', onEdited)
     es.addEventListener('message_updated', onUpdated)
     es.addEventListener('typing_update', onTyping)
-    es.onopen = () => { esConnectedRef.current = true }
+    es.onopen = () => { esConnectedRef.current = true; setRealtimeStatus('connected') }
     es.onerror = () => {
       // let browser auto-reconnect; mark disconnected to tighten polling
       esConnectedRef.current = false
+      setRealtimeStatus('polling')
     }
     return () => {
       es.removeEventListener('message_created', onCreated)
@@ -597,6 +599,14 @@ export default function Home() {
             })()}
           </div>
         )}
+
+        {/* Desktop-only realtime status indicator */}
+        <div className="hidden md:flex px-4 pb-2 -mt-0.5 text-[11px] text-gray-500 gap-2 items-center">
+          <span className={`inline-flex items-center gap-1 ${realtimeStatus === 'connected' ? 'text-green-600' : 'text-amber-600'}`}>
+            <span className={`h-2 w-2 rounded-full ${realtimeStatus === 'connected' ? 'bg-green-500' : 'bg-amber-500'}`}></span>
+            {realtimeStatus === 'connected' ? 'Realtime: Connected' : 'Realtime: Polling'}
+          </span>
+        </div>
 
           {user ? (
           <ChatInput
