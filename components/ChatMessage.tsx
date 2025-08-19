@@ -164,7 +164,7 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
+      transition={{ }}
       className={`flex mb-4 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
       id={message._id || `${message.username}-${message.timestamp}`}
     >
@@ -183,21 +183,6 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
         
         {/* Message bubble */}
         <div className="flex flex-col">
-          {/* Username + Country flag */}
-          <div
-            className={`flex items-center ${isCurrentUser ? 'justify-end' : 'justify-start'} gap-1 mb-1 text-xs text-gray-500`}
-          >
-            <span className="inline-flex items-center gap-1">
-              <span className="font-medium text-gray-700 dark:text-gray-300">{message.username}</span>
-              <span
-                aria-hidden
-                title={message.countryCode || undefined}
-                className="leading-none"
-              >
-                {countryCodeToFlag(message.countryCode || (isCurrentUser ? currentUserCountry : undefined))}
-              </span>
-            </span>
-          </div>
           <div className={`relative chat-bubble ${isCurrentUser ? 'chat-bubble-user' : 'chat-bubble-other'}`}>
             {/* Quick reactions on hover: left of the bubble */}
             {onToggleReaction && message._id && (
@@ -372,7 +357,9 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
             {/* Metadata row inside bubble */}
             <div className={`mt-2 flex items-center justify-between text-[10px] opacity-70`}>
               <div className="flex items-center gap-2">
-                {message.editedAt && <span title={`Edited ${formatAbsolute(new Date(message.editedAt))}`}>edited</span>}
+                {message.editedAt && (
+                  <span title={`Edited ${formatAbsolute(new Date(message.editedAt))}`}>edited</span>
+                )}
               </div>
               <div className="flex items-center gap-1">
                 {canEdit && !imageUrl && (
@@ -387,9 +374,128 @@ export default function ChatMessage({ message, currentUsername, currentUserCount
                 )}
               </div>
             </div>
+      {isEditing ? (
+        <div className="flex flex-col gap-2">
+          <ReactQuill
+            ref={editQuillRef}
+            theme="bubble"
+            value={editHtml ?? html ?? draft}
+            onChange={(value: string, _delta: unknown, _source: unknown, editor: UnprivilegedEditor) => {
+              setEditHtml(value)
+              setEditPlain(editor.getText())
+            }}
+            modules={{
+              toolbar: false,
+              history: { delay: 500, maxStack: 200, userOnly: true },
+              keyboard: {
+                bindings: {
+                  undo: {
+                    key: 'Z',
+                    shortKey: true,
+                    shiftKey: false,
+                    handler: () => {
+                      const q: Quill | null = editQuillRef.current && (editQuillRef.current as unknown as ReactQuillType).getEditor ? (editQuillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+                      // @ts-expect-error history module injected by Quill at runtime
+                      q?.history?.undo?.()
+                      return false
+                    }
+                  },
+                  redo: {
+                    key: 'Z',
+                    shortKey: true,
+                    shiftKey: true,
+                    handler: () => {
+                      const q: Quill | null = editQuillRef.current && (editQuillRef.current as unknown as ReactQuillType).getEditor ? (editQuillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+                      // @ts-expect-error history module injected by Quill at runtime
+                      q?.history?.redo?.()
+                      return false
+                    }
+                  },
+                  redoCtrlY: {
+                    key: 'Y',
+                    shortKey: true,
+                    shiftKey: false,
+                    handler: () => {
+                      const q: Quill | null = editQuillRef.current && (editQuillRef.current as unknown as ReactQuillType).getEditor ? (editQuillRef.current as unknown as ReactQuillType).getEditor() as Quill : null
+                      // @ts-expect-error history module injected by Quill at runtime
+                      q?.history?.redo?.()
+                      return false
+                    }
+                  }
+                }
+              }
+            }}
+            className="rounded-md bg-transparent border border-white/20 p-2 text-sm"
+          />
+          <div className="flex gap-2 text-xs">
+            <button
+              className="px-2 py-1 rounded bg-blue-600 text-white inline-flex items-center gap-1"
+              onClick={async () => {
+                if (savingRef.current) return
+                savingRef.current = true
+                try {
+                  const payload: { id?: string; username?: string; message: string; html?: string } = { id: message._id, username: currentUsername, message: '', html: undefined }
+                  const plain = (editPlain || '').trim()
+                  const contentHtml = editHtml ?? html ?? ''
+                  payload.message = plain || ' '
+                  payload.html = contentHtml
+                  const res = await fetch('/api/messages', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                  })
+                  if (res.ok) {
+                    const updated = await res.json()
+                    onEdited?.(updated)
+                    setIsEditing(false)
+                  }
+                } finally {
+                  savingRef.current = false
+                }
+              }}
+              title="Save edits"
+            >
+              <Check size={14} /> Save
+            </button>
+            <button
+              className="px-2 py-1 rounded bg-gray-600 text-white inline-flex items-center gap-1"
+              onClick={() => { setIsEditing(false); setEditHtml(null); setEditPlain('') }}
+              title="Cancel editing"
+            >
+              <X size={14} /> Cancel
+            </button>
           </div>
-          
-          {/* Metadata */}
+        </div>
+      ) : imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageUrl}
+          alt="uploaded image"
+          className="rounded-xl max-w-[280px] h-auto"
+          loading="lazy"
+        />
+      ) : (
+        html && html.trim().length > 0 ? (
+          <div
+            className={`leading-relaxed break-words overflow-x-hidden ${messageTextSize}`}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml((html || ''))
+              // Images responsive
+              .replace(/<img\s/gi, '<img class="rounded-xl max-w-[70vw] sm:max-w-[280px] h-auto inline-block align-middle" ')
+              // Ensure anchors are safe and styled
+              .replace(/<a\s+href="([^"]+)"[^>]*>/gi, '<a href="$1" target="_blank" rel="noopener noreferrer" class="underline decoration-dotted text-blue-300 hover:text-blue-200">')
+              // Headings sizing
+              .replace(/<h1(\s|>)/gi, '<h1 class="text-2xl font-semibold"$1')
+              .replace(/<h2(\s|>)/gi, '<h2 class="text-base font-medium"$1')
+              .replace(/<h3(\s|>)/gi, '<h3 class="text-xs font-medium opacity-90"$1')
+            }}
+          />
+        ) : (
+          <p className={`${messageTextSize} leading-relaxed break-words overflow-x-hidden`} dangerouslySetInnerHTML={renderHtml} />
+        )
+      )}
+      
+
+          {/* Secondary metadata row */}
           <div className={`relative flex items-center gap-2 mt-1 text-xs text-gray-400 ${
             isCurrentUser ? 'flex-row-reverse' : 'flex-row'
           }`}>
