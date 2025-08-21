@@ -59,6 +59,19 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
     setError('')
     const name = username.trim()
     if (name.toLowerCase() === 'arham') {
+      // If already verified via cookie, skip keyword prompt
+      try {
+        if (typeof document !== 'undefined') {
+          const cookieStr = document.cookie || ''
+          const hasOk = cookieStr.split(';').some(c => c.trim().startsWith('glcr_arham_ok=1'))
+          const lsOk = (typeof window !== 'undefined') ? window.localStorage.getItem('glcr_arham_ok') === '1' : false
+          if (hasOk || lsOk) {
+            setChallenge(generateArithmeticChallenge())
+            setStep('challenge')
+            return
+          }
+        }
+      } catch {}
       // Load keywords list (from URL or env) and go to arham key step
       setIsFetchingKeywords(true)
       try {
@@ -130,6 +143,7 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
               const months9 = 270 // ~9 months
               const expiresArham = new Date(Date.now() + months9 * 24 * 60 * 60 * 1000).toUTCString()
               document.cookie = `glcr_arham_ok=1; Expires=${expiresArham}; Path=/; SameSite=Lax`
+              try { if (typeof window !== 'undefined') window.localStorage.setItem('glcr_arham_ok', '1') } catch {}
             }
           } catch {}
         }
@@ -159,6 +173,7 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
       const months9 = 270 // ~9 months
       const expiresArham = new Date(Date.now() + months9 * 24 * 60 * 60 * 1000).toUTCString()
       document.cookie = `glcr_arham_ok=1; Expires=${expiresArham}; Path=/; SameSite=Lax`
+      try { if (typeof window !== 'undefined') window.localStorage.setItem('glcr_arham_ok', '1') } catch {}
     } catch {}
     setError('')
     setArhamKeyInput('')
