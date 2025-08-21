@@ -353,8 +353,8 @@ export default function Home() {
             window.clearTimeout(typingClearTimerRef.current)
           }
 
-          const GRACE_MS = 4000 // normal linger after last event
-          const MIN_VISIBLE_MS = 1200 // ensure at least this long on screen once shown
+          const GRACE_MS = 1200 // shorter linger to reduce distraction
+          const MIN_VISIBLE_MS = 600 // shorter minimum visible time
 
           // If empty user list arrives, wait at least GRACE_MS and also honor MIN_VISIBLE_MS
           // If non-empty arrives, still schedule a GRACE_MS clear which will be refreshed on the next event
@@ -797,29 +797,14 @@ export default function Home() {
 
         </div>
 
-        {/* Typing indicator (more noticeable without crowding) */}
-        {typingUsers.length > 0 && (
-          <div className="px-4 pb-2 -mt-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/10 dark:bg-white/10 border border-white/10 text-[12px] sm:text-[11px] text-gray-800 dark:text-gray-200">
-              <span className="relative inline-flex items-center">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
-                <span className="flex gap-1 ml-1">
-                  <span className="h-1 w-1 rounded-full bg-gray-500/80 animate-bounce [animation-delay:0ms]" />
-                  <span className="h-1 w-1 rounded-full bg-gray-500/80 animate-bounce [animation-delay:120ms]" />
-                  <span className="h-1 w-1 rounded-full bg-gray-500/80 animate-bounce [animation-delay:240ms]" />
-                </span>
-              </span>
-              <span>
-                {(() => {
-                  const names = typingUsers.slice(0, 3)
-                  const remaining = typingUsers.length - names.length
-                  const nameList = names.join(', ')
-                  if (remaining > 0) return `${nameList} and ${remaining} other${remaining > 1 ? 's' : ''} are typing…`
-                  if (names.length === 1) return `${names[0]} is typing…`
-                  if (names.length === 2) return `${names[0]} and ${names[1]} are typing…`
-                  return `${nameList} are typing…`
-                })()}
-              </span>
+        {/* Typing indicator (subtle) */}
+        {typingUsers.length > 0 && isNearBottom && (
+          <div className="px-4 pb-1 -mt-2">
+            <div className="text-[11px] sm:text-[10px] text-gray-500 dark:text-gray-400 select-none" aria-live="polite">
+              {(() => {
+                if (typingUsers.length <= 1) return `${typingUsers[0]} is typing…`
+                return `Several people are typing…`
+              })()}
             </div>
           </div>
         )}
