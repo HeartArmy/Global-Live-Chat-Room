@@ -14,9 +14,12 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
   const [username, setUsername] = useState('')
   const [challenge, setChallenge] = useState<ArithmeticChallenge | null>(null)
   const [userAnswer, setUserAnswer] = useState('')
-  const [step, setStep] = useState<'username' | 'challenge'>('username')
+  const [step, setStep] = useState<'username' | 'arhamKey' | 'challenge'>('username')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isFetchingKeywords, setIsFetchingKeywords] = useState(false)
+  const [arhamKeyInput, setArhamKeyInput] = useState('')
+  const [arhamKeywords, setArhamKeywords] = useState<string[] | null>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -37,7 +40,7 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
     }
   }, [isOpen])
 
-  const handleUsernameSubmit = () => {
+  const handleUsernameSubmit = async () => {
     if (!username.trim()) {
       setError('Please enter a name to continue')
       return
@@ -54,6 +57,41 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
     }
 
     setError('')
+    const name = username.trim()
+    if (name.toLowerCase() === 'arham') {
+      // Load keywords list (from URL or env) and go to arham key step
+      setIsFetchingKeywords(true)
+      try {
+        let keywords: string[] | null = null
+        const url = process.env.NEXT_PUBLIC_ARHAM_KEYWORDS_URL
+        if (url) {
+          try {
+            const res = await fetch(url, { cache: 'no-store' })
+            if (res.ok) {
+              const data = await res.json()
+              if (Array.isArray(data)) {
+                keywords = data.filter(v => typeof v === 'string') as string[]
+              } else if (Array.isArray((data || {}).keywords)) {
+                keywords = (data.keywords as unknown[]).filter(v => typeof v === 'string') as string[]
+              }
+            }
+          } catch {}
+        }
+        if (!keywords || keywords.length === 0) {
+          const single = process.env.NEXT_PUBLIC_ARHAM_KEYWORD
+          if (single && typeof single === 'string') {
+            keywords = [single]
+          }
+        }
+        setArhamKeywords(keywords || [])
+        setStep('arhamKey')
+        setError('')
+      } finally {
+        setIsFetchingKeywords(false)
+      }
+      return
+    }
+
     setChallenge(generateArithmeticChallenge())
     setStep('challenge')
   }
@@ -87,11 +125,43 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
             const days = 14
             const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString()
             document.cookie = `glcr_username=${encodeURIComponent(username.trim())}; Expires=${expires}; Path=/; SameSite=Lax`
+            // If using the reserved name, mark verification cookie as well
+            if (username.trim().toLowerCase() === 'arham') {
+              document.cookie = `glcr_arham_ok=1; Expires=${expires}; Path=/; SameSite=Lax`
+            }
           } catch {}
         }
       } catch {}
       setIsLoading(false)
     }, 500) // Small delay for better UX
+  }
+
+  const handleArhamKeySubmit = async () => {
+    const key = arhamKeyInput.trim()
+    if (!key) {
+      setError('Please enter the keyword')
+      return
+    }
+    const list = Array.isArray(arhamKeywords) ? arhamKeywords : []
+    if (list.length === 0) {
+      setError('Keyword list not configured. Please try again later.')
+      return
+    }
+    const ok = await normalizeAndCheck(key, list)
+    if (!ok) {
+      setError('Incorrect keyword')
+      return
+    }
+    // Set cookie so server can validate reserved name usage
+    try {
+      const days = 14
+      const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString()
+      document.cookie = `glcr_arham_ok=1; Expires=${expires}; Path=/; SameSite=Lax`
+    } catch {}
+    setError('')
+    setArhamKeyInput('')
+    setChallenge(generateArithmeticChallenge())
+    setStep('challenge')
   }
 
   const handleKeyPress = (e: React.KeyboardEvent, action: () => void) => {
@@ -200,6 +270,65 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
               </motion.div>
             )}
 
+            {step === 'arhamKey' && (
+              <motion.div
+                initial={{ x: 20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                className="space-y-4"
+              >
+                <div className="text-center">
+                  <p className="text-lg font-medium text-gray-100 mb-4">
+                    Reserved name verification
+                  </p>
+                  <p className="text-sm text-gray-300 mb-3">
+                    Please enter the private keyword to use this name.
+                  </p>
+                  <input
+                    type="password"
+                    value={arhamKeyInput}
+                    onChange={(e) => setArhamKeyInput(e.target.value)}
+                    onKeyPress={(e) => handleKeyPress(e, async () => {
+                      await handleArhamKeySubmit()
+                    })}
+                    placeholder={isFetchingKeywords ? 'Loading...' : 'Keyword'}
+                    className="input-field text-center"
+                    autoFocus
+                    disabled={isFetchingKeywords}
+                  />
+                </div>
+
+                {error && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-red-500 text-sm text-center"
+                  >
+                    {error}
+                  </motion.p>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setStep('username')
+                      setArhamKeyInput('')
+                      setError('')
+                    }}
+                    className="btn-secondary flex-1"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={async () => await handleArhamKeySubmit()}
+                    disabled={!arhamKeyInput.trim() || isFetchingKeywords}
+                    className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    Continue
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
             {step === 'challenge' && challenge && (
               <motion.div
                 initial={{ x: 20, opacity: 0 }}
@@ -273,3 +402,10 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
     </AnimatePresence>
   )
 }
+
+// Helper below component to keep top clean
+async function normalizeAndCheck(input: string, list: string[]): Promise<boolean> {
+  const cand = input.trim().toLowerCase()
+  return list.some(k => (k || '').toString().trim().toLowerCase() === cand)
+}
+

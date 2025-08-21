@@ -96,6 +96,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Reserved name protection: require verification cookie for 'arham'
+    if (finalUsername.toLowerCase() === 'arham') {
+      const arhamOk = request.cookies.get('glcr_arham_ok')?.value
+      if (arhamOk !== '1') {
+        return NextResponse.json(
+          { error: 'Reserved name requires verification. Please enter the private keyword.' },
+          { status: 403 }
+        )
+      }
+    }
+
     if (message.length > 2000) {
       return NextResponse.json(
         { error: 'Message too long (max 2000 characters)' },
