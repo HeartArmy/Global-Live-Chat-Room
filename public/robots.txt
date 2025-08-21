@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://globalchatroomvercel.app/sitemap.xml
+Sitemap: https://globalchatroom.vercel.app/sitemap.xml

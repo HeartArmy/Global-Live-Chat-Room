@@ -5,7 +5,7 @@ import { NextSSRPlugin } from '@uploadthing/react/next-ssr-plugin'
 import { extractRouterConfig } from 'uploadthing/server'
 import { ourFileRouter } from '@/app/api/uploadthing/core'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://globalchatroomvercel.app'
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://globalchatroom.vercel.app'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     siteName: 'Chat Room for the World',
     images: [
       {
-        url: `${siteUrl}/logo.png`,
+        url: `${siteUrl}/opengraph-image.png`,
         width: 1200,
         height: 630,
         alt: 'Chat Room for the World',
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Chat Room for the World',
     description: 'Connect with people from around the globe in a beautiful, realtime chat.',
-    images: [`${siteUrl}/logo.png`],
+    images: [`${siteUrl}/opengraph-image.png`],
   },
   icons: {
     icon: [

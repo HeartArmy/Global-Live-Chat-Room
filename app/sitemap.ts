@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://globalchatroomvercel.app'
+  const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://globalchatroom.vercel.app'
   return [
     {
       url: `${base}/`,
