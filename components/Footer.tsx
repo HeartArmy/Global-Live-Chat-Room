@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Heart, Mail, Github } from 'lucide-react'
+import { Heart, Mail, Github, Globe } from 'lucide-react'
 import { useState, useEffect, useMemo } from 'react'
 
 export default function Footer() {
@@ -45,6 +45,17 @@ export default function Footer() {
 
           {/* Right side */}
           <div className="flex items-center gap-4">
+            <motion.a
+              href="https://arhamx.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              className="p-2 rounded-full hover:bg-pastel-gray/60 transition-colors"
+              title="Visit website"
+            >
+              <Globe size={16} />
+            </motion.a>
             <motion.a
               href="mailto:arhampersonal@icloud.com"
               whileHover={{ scale: 1.1 }}
