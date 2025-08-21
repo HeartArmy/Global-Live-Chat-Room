@@ -96,9 +96,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (message.length > 500) {
+    if (message.length > 2000) {
       return NextResponse.json(
-        { error: 'Message too long (max 500 characters)' },
+        { error: 'Message too long (max 2000 characters)' },
         { status: 400 }
       )
     }
@@ -217,8 +217,8 @@ export async function PATCH(request: NextRequest) {
     if (!id || !username || !message) {
       return NextResponse.json({ error: 'id, username, and message are required' }, { status: 400 })
     }
-    if (message.length > 500) {
-      return NextResponse.json({ error: 'Message too long (max 500 characters)' }, { status: 400 })
+    if (message.length > 2000) {
+      return NextResponse.json({ error: 'Message too long (max 2000 characters)' }, { status: 400 })
     }
     const db = await getDatabase()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

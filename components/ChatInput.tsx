@@ -71,6 +71,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   }, [])
 
   const MAX_SIZE_BYTES = 1 * 1024 * 1024 // 1 MB
+  const MAX_CHARS = 2000
   const ACCEPT_TYPES = [
     'image/png',
     'image/jpeg',
@@ -228,10 +229,10 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       if (typingIdleTimerRef.current) {
         window.clearTimeout(typingIdleTimerRef.current)
       }
-      // Short idle so indicator clears quickly when user stops (~800ms)
+      // Slightly longer idle so indicator doesn't flicker on brief pauses (~1500ms)
       typingIdleTimerRef.current = window.setTimeout(() => {
         onTyping(false)
-      }, 800)
+      }, 1500)
     }
     // No automatic hyperlinking; links are inserted only via the Insert Link dialog (⌘K / Ctrl+K)
   }
@@ -314,10 +315,15 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    const text = (plainText || '').trim()
+    const raw = (plainText || '')
+    const text = raw.trim()
     const contentHtml = html || ''
     const hasContent = text.length > 0 || /<img\b/i.test(contentHtml)
     if (!disabled && hasContent) {
+      if (raw.length > MAX_CHARS) {
+        alert(`Message too long. Max ${MAX_CHARS} characters.`)
+        return
+      }
       onSendMessage(text || ' ', replyTo, contentHtml)
       setPlainText('')
       setHtml('')
@@ -654,6 +660,10 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
               <Smile size={18} />
             </button>
           </div>
+          {/* Character counter */}
+          <div className={`text-[10px] ${plainText.length > MAX_CHARS ? 'text-red-300' : 'text-gray-400'}`}>
+            {plainText.length}/{MAX_CHARS}
+          </div>
         </div>
         <div className="mb-1 text-[10px] text-gray-400 select-none">
           Tip: To add a hyperlink, use the Link icon
@@ -761,7 +771,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       
       <motion.button
         type="submit"
-        disabled={(plainText.trim().length === 0 && !(/<img\b/i.test(html))) || disabled || isUploading}
+        disabled={(plainText.trim().length === 0 && !(/<img\b/i.test(html))) || disabled || isUploading || plainText.length > MAX_CHARS}
         whileHover={isIOSMobile ? undefined : { scale: 1.05 }}
         whileTap={isIOSMobile ? undefined : { scale: 0.95 }}
         className="bg-pastel-blue hover:bg-blue-500 text-gray-100 h-12 w-12 rounded-2xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-pastel-blue/60 focus:ring-offset-2 focus:ring-offset-pastel-ink"

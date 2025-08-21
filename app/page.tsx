@@ -111,6 +111,7 @@ export default function Home() {
   const [typingUsers, setTypingUsers] = useState<string[]>([])
   const lastTypingPostRef = useRef(0)
   const lastTypingStateRef = useRef<boolean>(false)
+  const typingClearTimerRef = useRef<number | null>(null)
   // Realtime handled solely by Pusher (no SSE/polling)
 
   // Auto-scroll to bottom
@@ -334,7 +335,15 @@ export default function Home() {
       const onUpdated = (data: ChatMessageType) => handleMerge(data)
       const onTyping = (data: { users: string[]; count: number }) => {
         try {
-          setTypingUsers((data.users || []).filter(u => u && u !== (user?.username || '')))
+          const others = (data.users || []).filter(u => u && u !== (user?.username || ''))
+          setTypingUsers(others)
+          // Linger the indicator a bit to avoid flicker on brief pauses
+          if (typingClearTimerRef.current) {
+            window.clearTimeout(typingClearTimerRef.current)
+          }
+          typingClearTimerRef.current = window.setTimeout(() => {
+            setTypingUsers([])
+          }, 1500)
         } catch {}
       }
 
@@ -532,11 +541,14 @@ export default function Home() {
         if (newMessage?.timestamp) setLatestTs(String(newMessage.timestamp))
         setReplyTo(undefined)
       } else {
-        await response.json().catch(() => ({}))
+        let errMsg = 'Failed to send message'
+        try {
+          const e = await response.json()
+          if (e && typeof e.error === 'string') errMsg = e.error
+        } catch {}
         // Remove optimistic message on failure
         setMessages(prev => prev.filter(m => m._id !== tempId))
-        // swallow errors in UI
-        // Could show a toast notification here
+        alert(errMsg)
       }
     } catch {
       // Rollback optimistic message on error
