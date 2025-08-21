@@ -11,7 +11,7 @@ const typingBySession = new Map<string, { username: string; last: number }>()
 let lastBroadcastAt = 0
 let lastUsersJSON = '[]'
 
-function pruneTyping(staleMs = 1200) {
+function pruneTyping(staleMs = 4000) {
   const now = Date.now()
   typingBySession.forEach((info, sid) => {
     if (now - info.last > staleMs) typingBySession.delete(sid)

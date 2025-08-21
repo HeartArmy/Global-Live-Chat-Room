@@ -56,6 +56,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   const lastSelectionRef = useRef<{ index: number; length: number } | null>(null)
   // Typing timers
   const typingIdleTimerRef = useRef<number | null>(null)
+  const typingBlurTimerRef = useRef<number | null>(null)
   const [isIOSMobile, setIsIOSMobile] = useState(false)
 
   // Detect iOS mobile once on mount
@@ -352,6 +353,7 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
   useEffect(() => {
     return () => {
       if (typingIdleTimerRef.current) window.clearTimeout(typingIdleTimerRef.current)
+      if (typingBlurTimerRef.current) window.clearTimeout(typingBlurTimerRef.current)
       if (onTyping) onTyping(false)
     }
   }, [onTyping])
@@ -697,8 +699,20 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
             onChange={handleQuillChange}
             modules={modules}
             className="rounded-2xl min-h-12 max-h-32 overflow-y-auto px-4 py-3 text-xs bg-transparent w-full"
-            onBlur={() => { if (onTyping) onTyping(false) }}
-            onFocus={() => { if (onTyping) onTyping(true) }}
+            onBlur={() => {
+              // Delay stop-typing slightly so brief focus changes don't flicker the indicator
+              if (typingBlurTimerRef.current) window.clearTimeout(typingBlurTimerRef.current)
+              typingBlurTimerRef.current = window.setTimeout(() => {
+                if (onTyping) onTyping(false)
+              }, 1000)
+            }}
+            onFocus={() => {
+              if (typingBlurTimerRef.current) {
+                window.clearTimeout(typingBlurTimerRef.current)
+                typingBlurTimerRef.current = null
+              }
+              if (onTyping) onTyping(true)
+            }}
           />
         </div>
         {/* Removed file chooser: paste-only flow */}

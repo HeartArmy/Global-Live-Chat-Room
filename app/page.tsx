@@ -112,6 +112,7 @@ export default function Home() {
   const lastTypingPostRef = useRef(0)
   const lastTypingStateRef = useRef<boolean>(false)
   const typingClearTimerRef = useRef<number | null>(null)
+  const indicatorShownAtRef = useRef<number>(0)
   // Realtime handled solely by Pusher (no SSE/polling)
 
   // Auto-scroll to bottom
@@ -336,14 +337,41 @@ export default function Home() {
       const onTyping = (data: { users: string[]; count: number }) => {
         try {
           const others = (data.users || []).filter(u => u && u !== (user?.username || ''))
+          const now = Date.now()
+          const hadVisible = (typingUsers.length > 0)
+          const willShow = (others.length > 0)
+
+          // If we are transitioning from hidden -> visible, record when it appeared
+          if (!hadVisible && willShow) {
+            indicatorShownAtRef.current = now
+          }
+
           setTypingUsers(others)
-          // Linger the indicator a bit to avoid flicker on brief pauses
+
+          // Linger the indicator and enforce a minimum-visible time to avoid flicker
           if (typingClearTimerRef.current) {
             window.clearTimeout(typingClearTimerRef.current)
           }
+
+          const GRACE_MS = 4000 // normal linger after last event
+          const MIN_VISIBLE_MS = 1200 // ensure at least this long on screen once shown
+
+          // If empty user list arrives, wait at least GRACE_MS and also honor MIN_VISIBLE_MS
+          // If non-empty arrives, still schedule a GRACE_MS clear which will be refreshed on the next event
+          const shownFor = indicatorShownAtRef.current ? (now - indicatorShownAtRef.current) : 0
+          const ensureMinVisible = Math.max(0, MIN_VISIBLE_MS - shownFor)
+          const delay = willShow ? GRACE_MS : Math.max(GRACE_MS, ensureMinVisible)
+
           typingClearTimerRef.current = window.setTimeout(() => {
-            setTypingUsers([])
-          }, 4000)
+            // Only clear if no one is typing at the moment this fires
+            setTypingUsers(curr => {
+              if (curr.length === 0) {
+                indicatorShownAtRef.current = 0
+                return []
+              }
+              return curr
+            })
+          }, delay)
         } catch {}
       }
 
