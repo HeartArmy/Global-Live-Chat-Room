@@ -343,7 +343,7 @@ export default function Home() {
           }
           typingClearTimerRef.current = window.setTimeout(() => {
             setTypingUsers([])
-          }, 1500)
+          }, 4000)
         } catch {}
       }
 

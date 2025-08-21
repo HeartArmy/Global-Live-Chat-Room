@@ -229,10 +229,10 @@ export default function ChatInput({ onSendMessage, disabled, replyTo, onCancelRe
       if (typingIdleTimerRef.current) {
         window.clearTimeout(typingIdleTimerRef.current)
       }
-      // Slightly longer idle so indicator doesn't flicker on brief pauses (~1500ms)
+      // Longer idle so indicator doesn't flicker on pauses (~4000ms)
       typingIdleTimerRef.current = window.setTimeout(() => {
         onTyping(false)
-      }, 1500)
+      }, 4000)
     }
     // No automatic hyperlinking; links are inserted only via the Insert Link dialog (⌘K / Ctrl+K)
   }
