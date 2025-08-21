@@ -123,11 +123,13 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
           // Also cache in a cookie for server access (14 days)
           try {
             const days = 14
-            const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString()
-            document.cookie = `glcr_username=${encodeURIComponent(username.trim())}; Expires=${expires}; Path=/; SameSite=Lax`
-            // If using the reserved name, mark verification cookie as well
+            const expiresUsername = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString()
+            document.cookie = `glcr_username=${encodeURIComponent(username.trim())}; Expires=${expiresUsername}; Path=/; SameSite=Lax`
+            // If using the reserved name, mark verification cookie as well (9 months)
             if (username.trim().toLowerCase() === 'arham') {
-              document.cookie = `glcr_arham_ok=1; Expires=${expires}; Path=/; SameSite=Lax`
+              const months9 = 270 // ~9 months
+              const expiresArham = new Date(Date.now() + months9 * 24 * 60 * 60 * 1000).toUTCString()
+              document.cookie = `glcr_arham_ok=1; Expires=${expiresArham}; Path=/; SameSite=Lax`
             }
           } catch {}
         }
@@ -154,9 +156,9 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
     }
     // Set cookie so server can validate reserved name usage
     try {
-      const days = 14
-      const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString()
-      document.cookie = `glcr_arham_ok=1; Expires=${expires}; Path=/; SameSite=Lax`
+      const months9 = 270 // ~9 months
+      const expiresArham = new Date(Date.now() + months9 * 24 * 60 * 60 * 1000).toUTCString()
+      document.cookie = `glcr_arham_ok=1; Expires=${expiresArham}; Path=/; SameSite=Lax`
     } catch {}
     setError('')
     setArhamKeyInput('')
