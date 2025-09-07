@@ -181,8 +181,8 @@ export async function POST(request: NextRequest) {
           const now = new Date()
           const last = doc?.lastSentAt ? new Date(doc.lastSentAt) : undefined
           const elapsed = last ? now.getTime() - last.getTime() : Number.POSITIVE_INFINITY
-          const TWO_HOURS = 2 * 60 * 60 * 1000
-          if (elapsed >= TWO_HOURS) {
+          const ONE_HOUR = 60 * 60 * 1000
+          if (elapsed >= ONE_HOUR) {
             const host = process.env.SMTP_HOST
             const port = process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 587
             const user = process.env.SMTP_USER
