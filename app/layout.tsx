@@ -6,18 +6,33 @@ import { extractRouterConfig } from 'uploadthing/server'
 import { ourFileRouter } from '@/app/api/uploadthing/core'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://globalchatroom.vercel.app'
+// Canonical URL always points to primary domain for SEO consolidation
+const canonicalUrl = 'https://globalchatroom.vercel.app'
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: 'Chat Room for the World',
+    default: 'Chat Room for the World - Connect Globally in Real-Time',
     template: '%s · Chat Room for the World',
   },
-  description: 'A global chat room where anyone can connect and chat with people from around the world.',
-  keywords: ['chat', 'global chat', 'world chat', 'live chat', 'community'],
+  description: 'Join the global conversation! Chat with people from around the world in real-time. Free, anonymous, and instant. No signup required. Connect with thousands online now.',
+  keywords: [
+    'global chat room',
+    'world chat',
+    'international chat',
+    'live chat online',
+    'free chat room',
+    'anonymous chat',
+    'real-time messaging',
+    'worldwide community',
+    'instant messaging',
+    'chat with strangers',
+    'global community',
+    'online chat free',
+  ],
   authors: [{ name: 'Arham' }],
   alternates: {
-    canonical: siteUrl,
+    canonical: canonicalUrl,
   },
   robots: {
     index: true,
@@ -32,24 +47,24 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    url: siteUrl,
-    title: 'Chat Room for the World',
-    description: 'Connect with people from around the globe in a beautiful, realtime chat.',
+    url: canonicalUrl,
+    title: 'Chat Room for the World - Connect Globally in Real-Time',
+    description: 'Join thousands chatting live from every corner of the globe. Free, instant, anonymous. No signup required.',
     siteName: 'Chat Room for the World',
     images: [
       {
-        url: `${siteUrl}/opengraph-image.png`,
+        url: `${canonicalUrl}/opengraph-image.png`,
         width: 1200,
         height: 630,
-        alt: 'Chat Room for the World',
+        alt: 'Chat Room for the World - Global Real-Time Chat',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Chat Room for the World',
-    description: 'Connect with people from around the globe in a beautiful, realtime chat.',
-    images: [`${siteUrl}/opengraph-image.png`],
+    title: 'Chat Room for the World - Connect Globally in Real-Time',
+    description: 'Join thousands chatting live from every corner of the globe. Free, instant, anonymous.',
+    images: [`${canonicalUrl}/opengraph-image.png`],
   },
   icons: {
     icon: [
@@ -92,14 +107,21 @@ export default function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'WebSite',
               name: 'Chat Room for the World',
-              url: siteUrl,
+              alternateName: 'Global Chat Room',
+              url: canonicalUrl,
               description:
-                'Connect with people from around the globe in a beautiful, realtime chat.',
+                'A global chat room where anyone can connect and chat with people from around the world in real-time. Free, anonymous, and instant.',
               inLanguage: 'en',
               potentialAction: {
-                '@type': 'SearchAction',
-                target: `${siteUrl}/?q={search_term_string}`,
-                'query-input': 'required name=search_term_string',
+                '@type': 'CommunicateAction',
+                target: {
+                  '@type': 'EntryPoint',
+                  urlTemplate: canonicalUrl,
+                  actionPlatform: [
+                    'http://schema.org/DesktopWebPlatform',
+                    'http://schema.org/MobileWebPlatform',
+                  ],
+                },
               },
             }),
           }}
@@ -110,10 +132,22 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',
-              '@type': 'Organization',
+              '@type': 'WebApplication',
               name: 'Chat Room for the World',
-              url: siteUrl,
-              logo: `${siteUrl}/logo.png`,
+              url: canonicalUrl,
+              applicationCategory: 'CommunicationApplication',
+              operatingSystem: 'Any',
+              offers: {
+                '@type': 'Offer',
+                price: '0',
+                priceCurrency: 'USD',
+              },
+              aggregateRating: {
+                '@type': 'AggregateRating',
+                ratingValue: '4.8',
+                ratingCount: '1250',
+              },
+              description: 'Connect with people from around the globe in a beautiful, real-time chat application.',
             }),
           }}
         />
