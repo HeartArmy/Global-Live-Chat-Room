@@ -1,7 +1,8 @@
 import type { MetadataRoute } from 'next'
 
 export default function robots(): MetadataRoute.Robots {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://live-chat.example.com'
+  // Always use canonical URL for SEO consolidation
+  const canonical = 'https://globalchatroom.vercel.app'
   return {
     rules: [
       {
@@ -10,7 +11,7 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/api', '/api/*'],
       },
     ],
-    sitemap: `${base}/sitemap.xml`,
-    host: base,
+    sitemap: `${canonical}/sitemap.xml`,
+    host: canonical,
   }
 }
