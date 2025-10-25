@@ -7,14 +7,6 @@ A beautiful, real-time global chat application where anyone can connect and chat
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)
 ![MongoDB](https://img.shields.io/badge/MongoDB-6-green?style=for-the-badge&logo=mongodb)
 
-## 🌐 Live Deployments
-
-Try the app now on any of these live instances:
-
-- **Primary**: [https://globalchatroom.vercel.app/](https://globalchatroom.vercel.app/)
-- **Mirror 1**: [https://live-chat-psi.vercel.app/](https://live-chat-psi.vercel.app/)
-- **Mirror 2**: [https://true-live-chat.vercel.app/](https://true-live-chat.vercel.app/)
-
 ## ✨ Features
 
 - **🌍 Global Chat Room**: Connect with people from around the world in real-time

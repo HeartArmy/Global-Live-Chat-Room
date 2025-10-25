@@ -1,13 +1,12 @@
 import type { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  // Always use canonical URL in sitemap for SEO consolidation
-  const canonical = 'https://globalchatroom.vercel.app'
+  const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://globalchatroom.vercel.app'
   return [
     {
-      url: canonical,
+      url: `${base}/`,
       lastModified: new Date(),
-      changeFrequency: 'always',
+      changeFrequency: 'daily',
       priority: 1,
     },
   ]
