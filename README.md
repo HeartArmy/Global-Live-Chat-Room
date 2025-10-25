@@ -1,41 +1,3 @@
-## 🧭 Architecture & Flow (High Level)
-
-- **Optimistic Send** (`app/page.tsx`):
-  1. User hits send. We generate a temporary ID and immediately append a message to local state.
-  2. POST `/api/messages` persists the message in MongoDB.
-  3. Server broadcasts `message_created` on a Pusher channel.
-  4. Client merges the authoritative message (replacing the temp one) using a de-dupe `mergeUnique()` helper.
-
-- **Realtime Fan-out** (Pusher):
-  - Events: `message_created`, `message_edited`, `message_updated` (reactions, etc.), `typing_update`.
-  - A single open WebSocket subscription keeps all clients in sync with minimal latency.
-
-- **Delete-as-Edit**:
-  1. PATCH `/api/messages` with the special placeholder `[this message has been deleted]`.
-  2. Server enforces a strict 10-minute window (ownership + timestamp validation).
-  3. UI renders deleted messages in italic grey, preserves metadata and context, and hides interactions.
-
-- **Flags / Author Meta**:
-  - A small local cache (`localStorage`) stores `username -> { countryCode }` so each bubble shows name + flag without repeated lookups.
-  - Cache seeds from initial fetch and incoming realtime messages.
-
-## 🛠 Recent Changes (Feature Update)
-
-- “Messages are now much faster.” We introduced a dedicated Pusher message channel that sits between the user and MongoDB to broadcast new/edited messages in real time via an always-open WebSocket. Combined with an optimistic UI, messages appear instantly.
-- “Delete messages (10 min).” Users can delete their own messages within 10 minutes. Deleted messages are not removed; they render as a placeholder to preserve conversation context.
-- “Name + Flag on every message.” We restore the name/flag display without adding payload bloat using a client-side username meta cache persisted in `localStorage`.
-
-### Suggested Release Note
-
-> Messages now send and appear instantly via a dedicated Pusher channel and an optimistic UI. We also added a 10‑minute delete window (deleted messages show a placeholder to keep context) and brought back per‑message name + country flag using a lightweight client-side cache for speed.
-
-## 🧩 Challenges & Key Decisions
-
-- **Latency vs. Consistency**: We favored an optimistic UI and reconciled with server-sourced events from Pusher. A de-dupe merge routine ensures a single canonical copy per message.
-- **Per-Message Payload Size**: To keep messages lightweight, we avoided attaching redundant user meta on every message. Instead, we render name/flag from a client-side cache seeded from initial batch + realtime events.
-- **Edit/Delete Policy**: A strict 10-minute window enforced both client- and server-side avoids confusion and keeps logic simple.
-- **Quill + React 19**: React 19 removed `findDOMNode`. We switched to `react-quill-new` with a small type shim to prevent runtime crashes.
-- **Mobile UX Density**: Kept controls small and within bubble metadata rows to preserve vertical space while ensuring tap targets remain usable.
 # 🌍 Chat Room for the World
 
 A beautiful, real-time global chat application where anyone can connect and chat with people from around the world. Built with Next.js 15, React 19, and designed with Apple's aesthetic principles in mind.
@@ -167,6 +129,46 @@ This app is designed with Apple's principles in mind:
 - **Rotating Subtitles**: Header shows different inspiring messages about global connection
 - **Fun Facts Footer**: Educational tidbits about the app and global communication
 - **Emoji Support**: Quick emoji insertion for expressive chatting
+
+
+## 🧭 Architecture & Flow (High Level)
+
+- **Optimistic Send** (`app/page.tsx`):
+  1. User hits send. We generate a temporary ID and immediately append a message to local state.
+  2. POST `/api/messages` persists the message in MongoDB.
+  3. Server broadcasts `message_created` on a Pusher channel.
+  4. Client merges the authoritative message (replacing the temp one) using a de-dupe `mergeUnique()` helper.
+
+- **Realtime Fan-out** (Pusher):
+  - Events: `message_created`, `message_edited`, `message_updated` (reactions, etc.), `typing_update`.
+  - A single open WebSocket subscription keeps all clients in sync with minimal latency.
+
+- **Delete-as-Edit**:
+  1. PATCH `/api/messages` with the special placeholder `[this message has been deleted]`.
+  2. Server enforces a strict 10-minute window (ownership + timestamp validation).
+  3. UI renders deleted messages in italic grey, preserves metadata and context, and hides interactions.
+
+- **Flags / Author Meta**:
+  - A small local cache (`localStorage`) stores `username -> { countryCode }` so each bubble shows name + flag without repeated lookups.
+  - Cache seeds from initial fetch and incoming realtime messages.
+
+## 🛠 Recent Changes (Feature Update)
+
+- “Messages are now much faster.” We introduced a dedicated Pusher message channel that sits between the user and MongoDB to broadcast new/edited messages in real time via an always-open WebSocket. Combined with an optimistic UI, messages appear instantly.
+- “Delete messages (10 min).” Users can delete their own messages within 10 minutes. Deleted messages are not removed; they render as a placeholder to preserve conversation context.
+- “Name + Flag on every message.” We restore the name/flag display without adding payload bloat using a client-side username meta cache persisted in `localStorage`.
+
+### Suggested Release Note
+
+> Messages now send and appear instantly via a dedicated Pusher channel and an optimistic UI. We also added a 10‑minute delete window (deleted messages show a placeholder to keep context) and brought back per‑message name + country flag using a lightweight client-side cache for speed.
+
+## 🧩 Challenges & Key Decisions
+
+- **Latency vs. Consistency**: We favored an optimistic UI and reconciled with server-sourced events from Pusher. A de-dupe merge routine ensures a single canonical copy per message.
+- **Per-Message Payload Size**: To keep messages lightweight, we avoided attaching redundant user meta on every message. Instead, we render name/flag from a client-side cache seeded from initial batch + realtime events.
+- **Edit/Delete Policy**: A strict 10-minute window enforced both client- and server-side avoids confusion and keeps logic simple.
+- **Quill + React 19**: React 19 removed `findDOMNode`. We switched to `react-quill-new` with a small type shim to prevent runtime crashes.
+- **Mobile UX Density**: Kept controls small and within bubble metadata rows to preserve vertical space while ensuring tap targets remain usable.
 
 ## 🔧 Configuration
 
