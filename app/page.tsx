@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import Pusher from 'pusher-js'
-import type { Channel } from 'pusher-js'
 import { motion, AnimatePresence } from 'framer-motion'
 import AuthModal from '@/components/AuthModal'
 import ChatMessage from '@/components/ChatMessage'
@@ -10,6 +8,9 @@ import ChatInput from '@/components/ChatInput'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { ChatMessage as ChatMessageType, User, ReplyInfo } from '@/types/chat'
+import { DeviceProvider } from '@/contexts/DeviceContext'
+import { usePusherConnection } from '@/hooks/usePusherConnection'
+import { useMessagePolling } from '@/hooks/useMessagePolling'
 
 export default function Home() {
   // Tunables
@@ -29,6 +30,8 @@ export default function Home() {
   const [showScrollToLatest, setShowScrollToLatest] = useState(false)
   const didInitialScroll = useRef(false)
   const [countryCode, setCountryCode] = useState<string | null>(null)
+  const [isOnline, setIsOnline] = useState(true)
+  const [pusherFailedAt, setPusherFailedAt] = useState<number | null>(null)
   // Compute timezone once per session
   const tzRef = useRef<string>(
     (Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone) || 'UTC'
@@ -257,178 +260,129 @@ export default function Home() {
 
   // (moved below loadOlder)
 
-  // SSE removed: Pusher-only realtime
-
-  // Pusher Channels subscription for cross-instance realtime
-  useEffect(() => {
-    // Configure from env via NEXT_PUBLIC_*
-    const key = process.env.NEXT_PUBLIC_PUSHER_KEY
-    const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER
-    if (!key || !cluster) return
-
-    // Avoid duplicate connections
-    let pusher: Pusher | null = null
-    let channel: Channel | null = null
-
+  // Message merge handler for Pusher events
+  const handleMerge = useCallback((incoming: ChatMessageType) => {
     try {
-      // Detect iOS to force WebSocket-only there; keep desktop defaults unchanged
-      const isIOSMobile = (() => {
-        if (typeof navigator === 'undefined') return false
-        const ua = navigator.userAgent || ''
-        return /iPhone|iPad|iPod/i.test(ua)
-      })()
-
-      pusher = new Pusher(key, {
-        cluster,
-        forceTLS: true,
-        // On mobile iOS, do not allow xhr fallbacks; enforce websocket-only per request
-        ...(isIOSMobile ? ({ enabledTransports: ['ws', 'wss'] } as unknown as Record<string, unknown>) : {}),
-        disableStats: true,
-      })
-
-
-      // Dev-only: light connection state logging for diagnostics
-      if (process.env.NODE_ENV !== 'production') {
-        try {
-          pusher.connection.bind('state_change', (states: { previous?: string; current?: string }) => {
-            // eslint-disable-next-line no-console
-            console.debug('[pusher] state', states?.previous, '->', states?.current)
-          })
-          pusher.connection.bind('error', (err: unknown) => {
-            // eslint-disable-next-line no-console
-            console.debug('[pusher] error', err)
-          })
-        } catch {}
-      }
-
-      const handleMerge = (incoming: ChatMessageType) => {
-        try {
-          const msg = incoming
-          setMessages(prev => {
-            const filtered = prev.filter(m => {
-              if (msg.clientTempId && m.clientTempId === msg.clientTempId) return false
-              if (msg._id && m._id === msg._id) return false
-              return true
-            })
-            return mergeUnique(filtered, [msg], 'append')
-          })
-          // Update meta cache with any new country info
-          if (msg.username && msg.countryCode) {
-            setUserMeta(prev => {
-              const existed = prev[msg.username]?.countryCode
-              if (existed) return prev
-              const next = { ...prev, [msg.username]: { ...(prev[msg.username] || {}), countryCode: msg.countryCode } }
-              return next
-            })
-          }
-          setLatestTs(prevTs => {
-            const prevTime = prevTs ? new Date(prevTs).getTime() : 0
-            const t1 = new Date(String(msg.timestamp)).getTime()
-            const t2 = msg.updatedAt ? new Date(String(msg.updatedAt)).getTime() : t1
-            const maxTs = Math.max(prevTime, t1, t2)
-            return maxTs > prevTime ? new Date(maxTs).toISOString() : (prevTs || null)
-          })
-        } catch {}
-      }
-
-      const onCreated = (data: ChatMessageType) => handleMerge(data)
-      const onEdited = (data: ChatMessageType) => handleMerge(data)
-      const onUpdated = (data: ChatMessageType) => handleMerge(data)
-      const onTyping = (data: { users: string[]; count: number }) => {
-        try {
-          const others = (data.users || []).filter(u => u && u !== (user?.username || ''))
-          const now = Date.now()
-          const hadVisible = (typingUsers.length > 0)
-          const willShow = (others.length > 0)
-
-          // If we are transitioning from hidden -> visible, record when it appeared
-          if (!hadVisible && willShow) {
-            indicatorShownAtRef.current = now
-          }
-
-          setTypingUsers(others)
-
-          // Linger the indicator and enforce a minimum-visible time to avoid flicker
-          if (typingClearTimerRef.current) {
-            window.clearTimeout(typingClearTimerRef.current)
-          }
-
-          const GRACE_MS = 1200 // shorter linger to reduce distraction
-          const MIN_VISIBLE_MS = 600 // shorter minimum visible time
-
-          // If empty user list arrives, wait at least GRACE_MS and also honor MIN_VISIBLE_MS
-          // If non-empty arrives, still schedule a GRACE_MS clear which will be refreshed on the next event
-          const shownFor = indicatorShownAtRef.current ? (now - indicatorShownAtRef.current) : 0
-          const ensureMinVisible = Math.max(0, MIN_VISIBLE_MS - shownFor)
-          const delay = willShow ? GRACE_MS : Math.max(GRACE_MS, ensureMinVisible)
-
-          typingClearTimerRef.current = window.setTimeout(() => {
-            // Only clear if no one is typing at the moment this fires
-            setTypingUsers(curr => {
-              if (curr.length === 0) {
-                indicatorShownAtRef.current = 0
-                return []
-              }
-              return curr
-            })
-          }, delay)
-        } catch {}
-      }
-
-      const bindHandlers = (ch: Channel) => {
-        ch.bind('message_created', onCreated)
-        ch.bind('message_edited', onEdited)
-        ch.bind('message_updated', onUpdated)
-        ch.bind('typing_update', onTyping)
-      }
-
-      const unbindHandlers = (ch: Channel | null) => {
-        try {
-          ch?.unbind('message_created', onCreated)
-          ch?.unbind('message_edited', onEdited)
-          ch?.unbind('message_updated', onUpdated)
-          ch?.unbind('typing_update', onTyping)
-        } catch {}
-      }
-
-      const subscribeChannel = () => {
-        try {
-          const ch = pusher!.subscribe('chat-global')
-          bindHandlers(ch)
-          return ch
-        } catch {
-          return null
-        }
-      }
-
-      channel = subscribeChannel()
-
-      // Reconnect guard: on connection back to connected, resubscribe and rebind to avoid missed events
-      try {
-        pusher.connection.bind('state_change', (states: { previous?: string; current?: string }) => {
-          if (states?.current === 'connected') {
-            try {
-              unbindHandlers(channel)
-              if (channel) {
-                pusher?.unsubscribe('chat-global')
-              }
-              channel = subscribeChannel()
-            } catch {}
-          }
+      const msg = incoming
+      setMessages(prev => {
+        const filtered = prev.filter(m => {
+          if (msg.clientTempId && m.clientTempId === msg.clientTempId) return false
+          if (msg._id && m._id === msg._id) return false
+          return true
         })
-      } catch {}
-
-      return () => {
-        try {
-          unbindHandlers(channel)
-          // Avoid unsubscribe() on closing/closed sockets; disconnect handles teardown safely
-          if (pusher) pusher.disconnect()
-        } catch {}
+        return mergeUnique(filtered, [msg], 'append')
+      })
+      // Update meta cache with any new country info
+      if (msg.username && msg.countryCode) {
+        setUserMeta(prev => {
+          const existed = prev[msg.username]?.countryCode
+          if (existed) return prev
+          const next = { ...prev, [msg.username]: { ...(prev[msg.username] || {}), countryCode: msg.countryCode } }
+          return next
+        })
       }
-    } catch {
-      return
+      setLatestTs(prevTs => {
+        const prevTime = prevTs ? new Date(prevTs).getTime() : 0
+        const t1 = new Date(String(msg.timestamp)).getTime()
+        const t2 = msg.updatedAt ? new Date(String(msg.updatedAt)).getTime() : t1
+        const maxTs = Math.max(prevTime, t1, t2)
+        return maxTs > prevTime ? new Date(maxTs).toISOString() : (prevTs || null)
+      })
+    } catch {}
+  }, [])
+
+  // Typing indicator handler
+  const handleTyping = useCallback((data: { users: string[]; count: number }) => {
+    try {
+      const others = (data.users || []).filter(u => u && u !== (user?.username || ''))
+      const now = Date.now()
+      const hadVisible = (typingUsers.length > 0)
+      const willShow = (others.length > 0)
+
+      // If we are transitioning from hidden -> visible, record when it appeared
+      if (!hadVisible && willShow) {
+        indicatorShownAtRef.current = now
+      }
+
+      setTypingUsers(others)
+
+      // Linger the indicator and enforce a minimum-visible time to avoid flicker
+      if (typingClearTimerRef.current) {
+        window.clearTimeout(typingClearTimerRef.current)
+      }
+
+      const GRACE_MS = 1200 // shorter linger to reduce distraction
+      const MIN_VISIBLE_MS = 600 // shorter minimum visible time
+
+      // If empty user list arrives, wait at least GRACE_MS and also honor MIN_VISIBLE_MS
+      // If non-empty arrives, still schedule a GRACE_MS clear which will be refreshed on the next event
+      const shownFor = indicatorShownAtRef.current ? (now - indicatorShownAtRef.current) : 0
+      const ensureMinVisible = Math.max(0, MIN_VISIBLE_MS - shownFor)
+      const delay = willShow ? GRACE_MS : Math.max(GRACE_MS, ensureMinVisible)
+
+      typingClearTimerRef.current = window.setTimeout(() => {
+        // Only clear if no one is typing at the moment this fires
+        setTypingUsers(curr => {
+          if (curr.length === 0) {
+            indicatorShownAtRef.current = 0
+            return []
+          }
+          return curr
+        })
+      }, delay)
+    } catch {}
+  }, [user?.username, typingUsers.length])
+
+  // Use Pusher connection hook
+  const pusherState = usePusherConnection({
+    enabled: true,
+    onMessage: handleMerge,
+    onMessageEdited: handleMerge,
+    onMessageUpdated: handleMerge,
+    onTyping: handleTyping,
+    username: user?.username,
+  })
+
+  // Network status detection
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+
+    // Set initial state
+    setIsOnline(navigator.onLine)
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
     }
-  }, [user?.username])
+  }, [])
+
+  // Track Pusher failure time for polling activation
+  useEffect(() => {
+    if (pusherState.connectionState === 'failed' || pusherState.connectionState === 'unavailable') {
+      if (!pusherFailedAt) {
+        setPusherFailedAt(Date.now())
+      }
+    } else if (pusherState.connectionState === 'connected') {
+      setPusherFailedAt(null)
+    }
+  }, [pusherState.connectionState, pusherFailedAt])
+
+  // Activate polling if Pusher has been failed for >10 seconds
+  const shouldPoll = pusherFailedAt !== null && (Date.now() - pusherFailedAt > 10000)
+
+  // Fallback polling mechanism
+  const { isPolling } = useMessagePolling({
+    enabled: shouldPoll,
+    interval: 3000,
+    lastTimestamp: messages.length > 0 ? String(messages[messages.length - 1].timestamp) : null,
+    onNewMessages: (newMessages) => {
+      setMessages(prev => mergeUnique(prev, newMessages, 'append'))
+    },
+  })
 
   // Fetch older messages before current oldestTs and prepend, preserving scroll position
   const loadOlder = useCallback(async () => {
@@ -688,8 +642,21 @@ export default function Home() {
   }, [sessionId, user])
 
   return (
-    <div className="h-screen overflow-hidden bg-gradient-to-br from-pastel-ink via-shimmer-white to-pastel-gray flex flex-col">
-      <Header onlineCount={stats.onlineCount} totalMessages={stats.totalMessages} username={user?.username} countryCode={countryCode || undefined} />
+    <DeviceProvider>
+      <div className="h-screen overflow-hidden bg-gradient-to-br from-pastel-ink via-shimmer-white to-pastel-gray flex flex-col">
+        <Header 
+          onlineCount={stats.onlineCount} 
+          totalMessages={stats.totalMessages} 
+          username={user?.username} 
+          countryCode={countryCode || undefined}
+          connectionState={pusherState.connectionState}
+          isOnline={isOnline}
+          isPolling={isPolling}
+          onReconnect={() => {
+            // Force reconnect by reloading the page or manually triggering reconnect
+            window.location.reload()
+          }}
+        />
       
       <main className="flex-1 min-h-0 flex flex-col max-w-4xl mx-auto w-full overflow-x-hidden">
         {/* Messages area */}
@@ -842,8 +809,9 @@ export default function Home() {
 
       <Footer />
 
-      {/* Auth Modal */}
-      <AuthModal isOpen={!user} onAuth={handleAuth} />
-    </div>
+        {/* Auth Modal */}
+        <AuthModal isOpen={!user} onAuth={handleAuth} />
+      </div>
+    </DeviceProvider>
   )
 }

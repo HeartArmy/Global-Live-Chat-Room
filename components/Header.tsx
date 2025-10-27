@@ -5,15 +5,29 @@ import { countryCodeToFlag } from '@/utils/geo'
 import { Globe, Users, Clock } from 'lucide-react'
 import { getCurrentTimestamp } from '@/utils/timezone'
 import { useEffect, useState, useMemo } from 'react'
+import ConnectionStatus from './ConnectionStatus'
 
 interface HeaderProps {
   onlineCount?: number
   totalMessages?: number
   username?: string
   countryCode?: string
+  connectionState?: string
+  isOnline?: boolean
+  isPolling?: boolean
+  onReconnect?: () => void
 }
 
-export default function Header({ onlineCount = 0, totalMessages = 0, username, countryCode }: HeaderProps) {
+export default function Header({ 
+  onlineCount = 0, 
+  totalMessages = 0, 
+  username, 
+  countryCode,
+  connectionState = 'connected',
+  isOnline = true,
+  isPolling = false,
+  onReconnect
+}: HeaderProps) {
   const [currentTime, setCurrentTime] = useState('')
 
   useEffect(() => {
@@ -70,13 +84,20 @@ export default function Header({ onlineCount = 0, totalMessages = 0, username, c
             </div>
           </motion.div>
 
-          {/* Stats */}
+          {/* Stats and Connection Status */}
           <motion.div
             initial={{ x: 20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="hidden md:flex items-center gap-6 text-sm text-gray-400"
+            className="hidden md:flex items-center gap-4 text-sm text-gray-400"
           >
+            <ConnectionStatus 
+              connectionState={connectionState}
+              isOnline={isOnline}
+              isPolling={isPolling}
+              onReconnect={onReconnect}
+            />
+            
             <div className="flex items-center gap-2">
               <Users size={16} />
               <span>{onlineCount.toLocaleString()} online</span>
@@ -89,14 +110,22 @@ export default function Header({ onlineCount = 0, totalMessages = 0, username, c
           </motion.div>
         </div>
 
-        {/* Mobile stats */}
+        {/* Mobile stats and connection status */}
         <motion.div
           initial={{ y: 10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
           className="md:hidden mt-3 flex items-center justify-between text-xs text-gray-400"
         >
-          <span>{onlineCount.toLocaleString()} people online</span>
+          <div className="flex items-center gap-2">
+            <ConnectionStatus 
+              connectionState={connectionState}
+              isOnline={isOnline}
+              isPolling={isPolling}
+              onReconnect={onReconnect}
+            />
+            <span>{onlineCount.toLocaleString()} online</span>
+          </div>
           <span className="truncate flex items-center gap-2">
             {totalMessages.toLocaleString()} messages
           </span>
