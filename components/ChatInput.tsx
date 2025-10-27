@@ -14,15 +14,7 @@ interface ChatInputProps {
 }
 
 export default function ChatInput(props: ChatInputProps) {
-  const { isMobile } = useDevice()
-  
-  // Feature flag for mobile optimization
-  const mobileOptEnabled = process.env.NEXT_PUBLIC_MOBILE_OPT !== 'false'
-  
-  // Conditionally render mobile or desktop input based on device type and feature flag
-  if (isMobile && mobileOptEnabled) {
-    return <ChatInputMobile {...props} />
-  }
-  
+  // Force desktop version for all users (mobile optimization disabled)
+  // This ensures consistent experience across all devices
   return <ChatInputDesktop {...props} />
 }
