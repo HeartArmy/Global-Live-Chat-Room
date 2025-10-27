@@ -516,29 +516,11 @@ export default function Home() {
 
       if (response.ok) {
         const newMessage = await response.json()
-        
-        // Wait a brief moment to let Pusher broadcast arrive first
-        // This prevents the duplicate flash when both server response and Pusher arrive simultaneously
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
-        // Reconcile: remove any duplicate with same _id (from Pusher), drop temp, then add one canonical
+        // Reconcile: remove any duplicate with same _id (from SSE/poll), drop temp, then add one canonical
         setMessages(prev => {
-          // Check if message already exists (from Pusher broadcast)
-          const alreadyExists = prev.some(m => 
-            (m._id && m._id === newMessage._id) || 
-            (m.clientTempId && m.clientTempId === newMessage.clientTempId)
-          )
-          
-          if (alreadyExists) {
-            // Just remove the temp message, Pusher already added the real one
-            return prev.filter(m => m._id !== tempId)
-          }
-          
-          // Otherwise, replace temp with server message
           const filtered = prev.filter(m => m._id !== tempId && m._id !== newMessage._id && m.clientTempId !== newMessage.clientTempId)
           return mergeUnique(filtered, [newMessage], 'append')
         })
-        
         // Reconfirm meta from server response if present
         if (newMessage?.username && newMessage?.countryCode) {
           setUserMeta(prev => ({ ...prev, [newMessage.username]: { ...(prev[newMessage.username] || {}), countryCode: newMessage.countryCode } }))

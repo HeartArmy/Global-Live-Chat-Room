@@ -193,15 +193,6 @@ export default function ChatInputMobile({
         <button
           type="submit"
           disabled={!canSend}
-          onClick={(e) => {
-            // Ensure submit fires on mobile tap
-            if (!canSend) {
-              e.preventDefault()
-              return
-            }
-            // Let the form submit naturally, but ensure it happens
-            handleSubmit(e as unknown as React.FormEvent)
-          }}
           className="bg-pastel-blue hover:bg-blue-500 active:bg-blue-600 text-gray-100 h-12 w-12 rounded-2xl transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-pastel-blue/60 focus:ring-offset-2 focus:ring-offset-pastel-ink shrink-0"
           aria-label="Send message"
         >
