@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import { Send, Smile, X, Bold, Italic } from 'lucide-react'
+import { Send, X } from 'lucide-react'
 import { ReplyInfo } from '@/types/chat'
 
 interface ChatInputMobileProps {
@@ -34,25 +34,11 @@ export default function ChatInputMobile({
 }: ChatInputMobileProps) {
   const [message, setMessage] = useState('')
   const [currentPlaceholder] = useState(funnyPlaceholders[Math.floor(Math.random() * funnyPlaceholders.length)])
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const emojiPickerRef = useRef<HTMLDivElement>(null)
 
   const MAX_CHARS = 2000
   const MAX_LINES = 6
-
-  // Common emojis for picker
-  const commonEmojis = useMemo(() => [
-    '😀','😁','😂','🤣','😊','😉','😍','🥰',
-    '😘','😎','🤔','😅','😭','😴','🥳','🤯',
-    '😤','😇','🙃','😐','🥲','😮','😬','🤗',
-    '❤️','🧡','💛','💚','💙','💜','🖤','🤍',
-    '💯','✨','⭐','🌈','⚡','🔥','🎉','🎈',
-    '👍','👎','👏','🙌','🙏','💪','🤝','👋',
-    '🍀','🌸','🌞','🌙','🌟','☁️','☕','🍰',
-    '🍕','🍔','🍟','🍣','🏆','🎵','📸','🧠'
-  ], [])
 
   // Auto-resize textarea based on content
   const adjustTextareaHeight = useCallback(() => {
@@ -117,53 +103,7 @@ export default function ChatInputMobile({
     }
   }, [message, disabled, onSendMessage, replyTo, onTyping])
 
-  // Insert text at cursor position (for formatting and emojis)
-  const insertAtCursor = useCallback((before: string, after: string = '') => {
-    const textarea = textareaRef.current
-    if (!textarea) return
 
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const selectedText = message.substring(start, end)
-    const newText = message.substring(0, start) + before + selectedText + after + message.substring(end)
-    
-    setMessage(newText)
-    
-    // Set cursor position after inserted text
-    setTimeout(() => {
-      const newCursorPos = start + before.length + selectedText.length
-      textarea.setSelectionRange(newCursorPos, newCursorPos)
-      textarea.focus()
-    }, 0)
-    
-    adjustTextareaHeight()
-  }, [message, adjustTextareaHeight])
-
-  // Format handlers
-  const handleBold = useCallback(() => {
-    insertAtCursor('**', '**')
-  }, [insertAtCursor])
-
-  const handleItalic = useCallback(() => {
-    insertAtCursor('*', '*')
-  }, [insertAtCursor])
-
-  const handleEmojiSelect = useCallback((emoji: string) => {
-    insertAtCursor(emoji)
-    setShowEmojiPicker(false)
-  }, [insertAtCursor])
-
-  // Close emoji picker on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (showEmojiPicker && emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
-        setShowEmojiPicker(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showEmojiPicker])
 
   // Cleanup typing timeout on unmount
   useEffect(() => {
@@ -218,62 +158,8 @@ export default function ChatInputMobile({
         </div>
       )}
 
-      {/* Formatting toolbar */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={handleBold}
-            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10 active:bg-white/20"
-            aria-label="Bold"
-            disabled={disabled}
-          >
-            <Bold size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={handleItalic}
-            className="h-8 px-2 rounded-full flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10 active:bg-white/20"
-            aria-label="Italic"
-            disabled={disabled}
-          >
-            <Italic size={16} />
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-              className="h-8 w-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-300 hover:bg-gray-700/60 active:bg-gray-700"
-              aria-label="Choose emoji"
-              disabled={disabled}
-            >
-              <Smile size={18} />
-            </button>
-            
-            {/* Emoji picker */}
-            {showEmojiPicker && (
-              <div
-                ref={emojiPickerRef}
-                className="absolute bottom-full left-0 mb-2 p-2 w-64 bg-pastel-ink rounded-xl border border-pastel-gray drop-shadow-xl z-50"
-              >
-                <div className="grid grid-cols-8 gap-1">
-                  {commonEmojis.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => handleEmojiSelect(emoji)}
-                      className="h-8 w-8 flex items-center justify-center rounded hover:bg-pastel-gray/60 text-lg active:bg-pastel-gray"
-                      aria-label={`Insert ${emoji}`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        
+      {/* Minimal toolbar - removed emoji picker, phone keyboard has emojis */}
+      <div className="flex items-center justify-end">
         {/* Character counter */}
         <div className={`text-[10px] ${isOverLimit ? 'text-red-300' : 'text-gray-400'}`}>
           {message.length}/{MAX_CHARS}
@@ -307,6 +193,15 @@ export default function ChatInputMobile({
         <button
           type="submit"
           disabled={!canSend}
+          onClick={(e) => {
+            // Ensure submit fires on mobile tap
+            if (!canSend) {
+              e.preventDefault()
+              return
+            }
+            // Let the form submit naturally, but ensure it happens
+            handleSubmit(e as unknown as React.FormEvent)
+          }}
           className="bg-pastel-blue hover:bg-blue-500 active:bg-blue-600 text-gray-100 h-12 w-12 rounded-2xl transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-pastel-blue/60 focus:ring-offset-2 focus:ring-offset-pastel-ink shrink-0"
           aria-label="Send message"
         >

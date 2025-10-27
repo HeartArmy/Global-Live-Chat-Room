@@ -28,17 +28,36 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
       setStep('username')
       setError('')
       setChallenge(null)
-      // Prefill from localStorage to avoid retyping
+      
+      // Check if user has valid auth cookies (username + math challenge completed within last week)
       try {
         if (typeof window !== 'undefined') {
-          const stored = window.localStorage.getItem('glcr_username_v1')
-          if (stored && typeof stored === 'string') {
-            setUsername(stored)
+          const storedUsername = window.localStorage.getItem('glcr_username_v1')
+          const mathCompletedAt = window.localStorage.getItem('glcr_math_completed_at')
+          
+          if (storedUsername && typeof storedUsername === 'string') {
+            setUsername(storedUsername)
+            
+            // Check if math challenge was completed within last 7 days
+            if (mathCompletedAt) {
+              const completedTime = parseInt(mathCompletedAt)
+              const weekInMs = 7 * 24 * 60 * 60 * 1000
+              const now = Date.now()
+              
+              if (!isNaN(completedTime) && (now - completedTime) < weekInMs) {
+                // Auto-login: skip both username and math challenge
+                onAuth({
+                  username: storedUsername,
+                  isVerified: true
+                })
+                return
+              }
+            }
           }
         }
       } catch {}
     }
-  }, [isOpen])
+  }, [isOpen, onAuth])
 
   const handleUsernameSubmit = async () => {
     if (!username.trim()) {
@@ -129,15 +148,18 @@ export default function AuthModal({ isOpen, onAuth }: AuthModalProps) {
         username: username.trim(),
         isVerified: true
       })
-      // Persist last used username for convenience
+      // Persist last used username and math completion time
       try {
         if (typeof window !== 'undefined') {
           window.localStorage.setItem('glcr_username_v1', username.trim())
+          window.localStorage.setItem('glcr_math_completed_at', Date.now().toString())
+          
           // Also cache in a cookie for server access (14 days)
           try {
             const days = 14
             const expiresUsername = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString()
             document.cookie = `glcr_username=${encodeURIComponent(username.trim())}; Expires=${expiresUsername}; Path=/; SameSite=Lax`
+            
             // If using the reserved name, mark verification cookie as well (9 months)
             if (username.trim().toLowerCase() === 'arham') {
               const months9 = 270 // ~9 months

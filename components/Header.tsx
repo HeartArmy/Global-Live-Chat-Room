@@ -16,6 +16,7 @@ interface HeaderProps {
   isOnline?: boolean
   isPolling?: boolean
   onReconnect?: () => void
+  onChangeUsername?: () => void
 }
 
 export default function Header({ 
@@ -26,7 +27,8 @@ export default function Header({
   connectionState = 'connected',
   isOnline = true,
   isPolling = false,
-  onReconnect
+  onReconnect,
+  onChangeUsername
 }: HeaderProps) {
   const [currentTime, setCurrentTime] = useState('')
 
@@ -73,12 +75,21 @@ export default function Header({
                 Connect with people from around the globe
               </p>
               {username && (
-                <div className="mt-1">
+                <div className="mt-1 flex items-center gap-2">
                   <span className="inline-flex items-center gap-2 text-xs px-2 py-1 rounded-full bg-pastel-ink text-gray-200 border border-pastel-gray">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-pastel-teal" />
                     {countryCode && <span aria-hidden>{countryCodeToFlag(countryCode)}</span>}
                     Using name: <strong className="font-medium">{username}</strong>
                   </span>
+                  {onChangeUsername && (
+                    <button
+                      onClick={onChangeUsername}
+                      className="text-xs px-2 py-1 rounded-full bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-colors"
+                      title="Change username"
+                    >
+                      Change
+                    </button>
+                  )}
                 </div>
               )}
             </div>

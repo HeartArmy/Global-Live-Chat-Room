@@ -141,12 +141,23 @@ export default function ChatMessage({ message, currentUsername, authorCountryCod
     return base.length ? base : commonEmojis
   }, [topEmojis, commonEmojis])
 
+  // Track current time to update canEdit reactively
+  const [currentTime, setCurrentTime] = useState(Date.now())
+  
+  useEffect(() => {
+    // Update every 10 seconds to refresh edit button visibility
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now())
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [])
+  
   const canEdit = useMemo(() => {
     if (!isCurrentUser) return false
     const createdAt = new Date(message.timestamp)
     const TEN_MINUTES = 10 * 60 * 1000
-    return Date.now() - createdAt.getTime() <= TEN_MINUTES
-  }, [isCurrentUser, message.timestamp])
+    return currentTime - createdAt.getTime() <= TEN_MINUTES
+  }, [isCurrentUser, message.timestamp, currentTime])
 
   // Remove native tooltips from links inside the edit Quill editor (strip title attributes)
   useEffect(() => {
@@ -169,7 +180,7 @@ export default function ChatMessage({ message, currentUsername, authorCountryCod
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ }}
-      className={`flex mb-4 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
+      className={`flex mb-2 ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
       id={message._id || `${message.username}-${message.timestamp}`}
     >
       <div className={`group flex max-w-[80%] ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}>

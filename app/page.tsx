@@ -158,8 +158,13 @@ export default function Home() {
       didInitialScroll.current = true
       scrollToBottomInstant()
     } else if (isNearBottom && !autoScrollLocked) {
-      // Keep following the bottom when near it and not locked (smooth)
-      scrollToBottom()
+      // Keep following the bottom when near it and not locked (smooth on desktop, instant on mobile)
+      // Use instant scroll on mobile for better reliability
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        scrollToBottomInstant()
+      } else {
+        scrollToBottom()
+      }
     }
   }, [messages, isNearBottom, autoScrollLocked])
 
@@ -511,11 +516,29 @@ export default function Home() {
 
       if (response.ok) {
         const newMessage = await response.json()
-        // Reconcile: remove any duplicate with same _id (from SSE/poll), drop temp, then add one canonical
+        
+        // Wait a brief moment to let Pusher broadcast arrive first
+        // This prevents the duplicate flash when both server response and Pusher arrive simultaneously
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        // Reconcile: remove any duplicate with same _id (from Pusher), drop temp, then add one canonical
         setMessages(prev => {
+          // Check if message already exists (from Pusher broadcast)
+          const alreadyExists = prev.some(m => 
+            (m._id && m._id === newMessage._id) || 
+            (m.clientTempId && m.clientTempId === newMessage.clientTempId)
+          )
+          
+          if (alreadyExists) {
+            // Just remove the temp message, Pusher already added the real one
+            return prev.filter(m => m._id !== tempId)
+          }
+          
+          // Otherwise, replace temp with server message
           const filtered = prev.filter(m => m._id !== tempId && m._id !== newMessage._id && m.clientTempId !== newMessage.clientTempId)
           return mergeUnique(filtered, [newMessage], 'append')
         })
+        
         // Reconfirm meta from server response if present
         if (newMessage?.username && newMessage?.countryCode) {
           setUserMeta(prev => ({ ...prev, [newMessage.username]: { ...(prev[newMessage.username] || {}), countryCode: newMessage.countryCode } }))
@@ -656,12 +679,23 @@ export default function Home() {
             // Force reconnect by reloading the page or manually triggering reconnect
             window.location.reload()
           }}
+          onChangeUsername={() => {
+            // Clear auth cookies and reload to show auth modal
+            try {
+              if (typeof window !== 'undefined') {
+                window.localStorage.removeItem('glcr_username_v1')
+                window.localStorage.removeItem('glcr_math_completed_at')
+                document.cookie = 'glcr_username=; Expires=Thu, 01 Jan 1970 00:00:00 UTC; Path=/;'
+              }
+            } catch {}
+            setUser(null)
+          }}
         />
       
       <main className="flex-1 min-h-0 flex flex-col max-w-4xl mx-auto w-full overflow-x-hidden">
         {/* Messages area */}
         <div
-          className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 space-y-1"
+          className="relative flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-2 space-y-0.5"
           ref={messagesContainerRef}
           onScroll={(e) => {
             const el = e.currentTarget
