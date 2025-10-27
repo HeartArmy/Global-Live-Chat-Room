@@ -30,7 +30,14 @@ export function useDevice(): DeviceContextValue {
   const context = useContext(DeviceContext)
   
   if (context === undefined) {
-    throw new Error('useDevice must be used within a DeviceProvider')
+    // Return default values for SSR instead of throwing
+    // This allows the hook to work during server-side rendering
+    return {
+      isMobile: false,
+      isIOS: false,
+      isAndroid: false,
+      screenWidth: 1024,
+    }
   }
   
   return context
