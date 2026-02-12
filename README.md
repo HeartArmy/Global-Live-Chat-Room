@@ -1,6 +1,8 @@
-# 🌍 Chat Room for the World
+# 🌍 Chat Room for the World [THIS REPO IS DEFUNCT]
 
-A beautiful, real-time global chat application where anyone can connect and chat with people from around the world. Built with Next.js 15, React 19, and designed with Apple's aesthetic principles in mind.
+NOTE I DONT USE THIS REPO ANYMORE MY LATEST GLOBAL CHAT ROOM IS HOSTED USING THIS REPO  https://github.com/HeartArmy/Light-Global-Chat
+
+A beautiful, real-time global chat application where anyone can connect and chat with people from around the world. Built with Next.js 15, React 19, and designed with Apple's aesthetic principles in mind. 
 
 ![Chat Room for the World](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)
 ![React](https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react)
