@@ -13,9 +13,8 @@ A beautiful, real-time global chat application where anyone can connect and chat
 
 Try the app now on any of these live instances:
 
-- **Primary**: [https://globalchatroom.vercel.app/](https://globalchatroom.vercel.app/)
-- **Mirror 1**: [https://live-chat-psi.vercel.app/](https://live-chat-psi.vercel.app/)
-- **Mirror 2**: [https://true-live-chat.vercel.app/](https://true-live-chat.vercel.app/)
+- **Primary**: [https://globalchatroom.vercel.app/](https://globalchatroom.vercel.app/)  This repo is https://github.com/HeartArmy/Light-Global-Chat
+ 
 
 ## ✨ Features
 
